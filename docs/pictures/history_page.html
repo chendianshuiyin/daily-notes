@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="zh-CN">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>记录列表</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com" rel="preconnect" />
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700&amp;display=swap" rel="stylesheet" />
+    <!-- Material Symbols -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <!-- Theme Configuration -->
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#135bec",
+                        "background-light": "#f6f6f8",
+                        "background-dark": "#101622",
+                        "surface-light": "#ffffff",
+                        "surface-dark": "#1e2736",
+                        "text-secondary": "#94a3b8",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "Noto Sans", "sans-serif"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+    <style>
+        /* Hide scrollbar for Chrome, Safari and Opera */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+
+        /* Hide scrollbar for IE, Edge and Firefox */
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            /* IE and Edge */
+            scrollbar-width: none;
+            /* Firefox */
+        }
+    </style>
+    <style>
+        body {
+            min-height: max(884px, 100dvh);
+        }
+    </style>
+</head>
+
+<body
+    class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white font-display min-h-screen relative flex flex-col overflow-x-hidden selection:bg-primary/30">
+    <!-- Sticky Header Area -->
+    <header
+        class="sticky top-0 z-20 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800/50">
+        <!-- Top App Bar -->
+        <div class="flex items-center justify-between px-4 py-3">
+            <button
+                class="flex size-10 items-center justify-center rounded-full text-slate-700 dark:text-white hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">
+                <span class="material-symbols-outlined text-[24px]">menu</span>
+            </button>
+            <h1 class="text-lg font-bold leading-tight tracking-tight flex-1 text-center pr-10">历史记录</h1>
+            <button
+                class="absolute right-4 flex size-10 items-center justify-center rounded-full text-slate-700 dark:text-white hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">
+                <span class="material-symbols-outlined text-[24px]">settings</span>
+            </button>
+        </div>
+        <!-- Search Bar -->
+        <div class="px-4 pb-2">
+            <div
+                class="flex w-full items-center rounded-xl bg-surface-light dark:bg-surface-dark border border-slate-200 dark:border-slate-700/50 shadow-sm focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent transition-all h-12">
+                <div class="flex items-center justify-center pl-4 text-text-secondary">
+                    <span class="material-symbols-outlined text-[20px]">search</span>
+                </div>
+                <input
+                    class="flex-1 bg-transparent border-none text-slate-900 dark:text-white placeholder:text-text-secondary focus:ring-0 px-3 text-base"
+                    placeholder="搜索特定记录、标签..." type="text" />
+            </div>
+        </div>
+        <!-- Filter Chips -->
+        <div class="flex gap-2 px-4 pb-4 overflow-x-auto no-scrollbar items-center">
+            <button
+                class="flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-full bg-primary px-4 shadow-sm shadow-primary/20 transition-transform active:scale-95">
+                <span class="text-white text-sm font-medium">全部</span>
+            </button>
+            <button
+                class="flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-full bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-700 px-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-700/50">
+                <span class="text-slate-700 dark:text-slate-300 text-sm font-medium">#工作</span>
+            </button>
+            <button
+                class="flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-full bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-700 px-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-700/50">
+                <span class="text-slate-700 dark:text-slate-300 text-sm font-medium">#生活</span>
+            </button>
+            <button
+                class="flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-full bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-700 px-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-700/50">
+                <span class="text-slate-700 dark:text-slate-300 text-sm font-medium">总结</span>
+            </button>
+            <button
+                class="flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-full bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-700 px-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-700/50">
+                <span class="text-slate-700 dark:text-slate-300 text-sm font-medium">已归档</span>
+            </button>
+        </div>
+    </header>
+    <!-- Main Content List -->
+    <main class="flex flex-col gap-4 p-4 pb-28">
+        <!-- List Item 1 -->
+        <article
+            class="group relative flex flex-col gap-2 rounded-2xl bg-white dark:bg-surface-dark p-4 shadow-sm border border-slate-200 dark:border-slate-800/60 active:scale-[0.99] transition-all duration-200">
+            <div class="flex items-start justify-between gap-4">
+                <!-- Date Block -->
+                <div
+                    class="flex flex-col items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800/50 min-w-[3.5rem] h-[3.5rem] shrink-0 border border-slate-200 dark:border-slate-700/50">
+                    <span class="text-lg font-bold text-slate-900 dark:text-white leading-none mt-1">24</span>
+                    <span class="text-[10px] font-medium uppercase text-text-secondary">10月</span>
+                </div>
+                <!-- Content -->
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center justify-between mb-1">
+                        <h3 class="text-base font-bold text-slate-900 dark:text-white truncate">项目架构设计会议</h3>
+                        <!-- Sync Icon -->
+                        <span class="material-symbols-outlined text-[16px] text-primary"
+                            title="已同步到 WebDAV">cloud_done</span>
+                    </div>
+                    <p class="text-sm text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
+                        今天完成了项目架构的初步设计，感觉非常充实。WebDAV同步功能的调试花了一些时间，但最终解决了...
+                    </p>
+                    <!-- Tags -->
+                    <div class="flex flex-wrap gap-2 mt-3">
+                        <span
+                            class="inline-flex items-center rounded-md bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 text-xs font-medium text-blue-600 dark:text-blue-300 ring-1 ring-inset ring-blue-600/10 dark:ring-blue-400/20">#工作</span>
+                        <span
+                            class="inline-flex items-center rounded-md bg-purple-50 dark:bg-purple-900/30 px-2 py-0.5 text-xs font-medium text-purple-600 dark:text-purple-300 ring-1 ring-inset ring-purple-600/10 dark:ring-purple-400/20">#开发</span>
+                    </div>
+                </div>
+                <!-- Arrow -->
+                <div
+                    class="flex h-full items-center justify-center self-center shrink-0 text-text-secondary/50 group-hover:text-primary transition-colors">
+                    <span class="material-symbols-outlined">chevron_right</span>
+                </div>
+            </div>
+        </article>
+        <!-- List Item 2 -->
+        <article
+            class="group relative flex flex-col gap-2 rounded-2xl bg-white dark:bg-surface-dark p-4 shadow-sm border border-slate-200 dark:border-slate-800/60 active:scale-[0.99] transition-all duration-200">
+            <div class="flex items-start justify-between gap-4">
+                <div
+                    class="flex flex-col items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800/50 min-w-[3.5rem] h-[3.5rem] shrink-0 border border-slate-200 dark:border-slate-700/50">
+                    <span class="text-lg font-bold text-slate-900 dark:text-white leading-none mt-1">23</span>
+                    <span class="text-[10px] font-medium uppercase text-text-secondary">10月</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center justify-between mb-1">
+                        <h3 class="text-base font-bold text-slate-900 dark:text-white truncate">晨跑与阅读</h3>
+                        <span class="material-symbols-outlined text-[16px] text-primary"
+                            title="已同步到 WebDAV">cloud_done</span>
+                    </div>
+                    <p class="text-sm text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
+                        早起晨跑了5公里，空气很清新。阅读了一本关于设计模式的书，深受启发。坚持就是胜利。
+                    </p>
+                    <div class="flex flex-wrap gap-2 mt-3">
+                        <span
+                            class="inline-flex items-center rounded-md bg-green-50 dark:bg-green-900/30 px-2 py-0.5 text-xs font-medium text-green-600 dark:text-green-300 ring-1 ring-inset ring-green-600/10 dark:ring-green-400/20">#生活</span>
+                        <span
+                            class="inline-flex items-center rounded-md bg-orange-50 dark:bg-orange-900/30 px-2 py-0.5 text-xs font-medium text-orange-600 dark:text-orange-300 ring-1 ring-inset ring-orange-600/10 dark:ring-orange-400/20">#运动</span>
+                    </div>
+                </div>
+                <div
+                    class="flex h-full items-center justify-center self-center shrink-0 text-text-secondary/50 group-hover:text-primary transition-colors">
+                    <span class="material-symbols-outlined">chevron_right</span>
+                </div>
+            </div>
+        </article>
+        <!-- List Item 3 (Image Attachment Example) -->
+        <article
+            class="group relative flex flex-col gap-2 rounded-2xl bg-white dark:bg-surface-dark p-4 shadow-sm border border-slate-200 dark:border-slate-800/60 active:scale-[0.99] transition-all duration-200">
+            <div class="flex items-start justify-between gap-4">
+                <div
+                    class="flex flex-col items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800/50 min-w-[3.5rem] h-[3.5rem] shrink-0 border border-slate-200 dark:border-slate-700/50">
+                    <span class="text-lg font-bold text-slate-900 dark:text-white leading-none mt-1">21</span>
+                    <span class="text-[10px] font-medium uppercase text-text-secondary">10月</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center justify-between mb-1">
+                        <h3 class="text-base font-bold text-slate-900 dark:text-white truncate">周末家庭聚餐</h3>
+                        <!-- Not Synced Icon Example -->
+                        <span class="material-symbols-outlined text-[16px] text-text-secondary"
+                            title="等待同步">cloud_off</span>
+                    </div>
+                    <div class="mb-3 h-32 w-full overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-800">
+                        <!-- Using a gradient as a placeholder for a user image -->
+                        <div class="w-full h-full bg-gradient-to-r from-blue-400 to-indigo-500 opacity-80"
+                            data-alt="Abstract representation of a family dinner photo with warm colors"></div>
+                    </div>
+                    <p class="text-sm text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
+                        难得的周末，全家人一起去了郊区的农家乐。菜很好吃，特别是那个烤鱼...
+                    </p>
+                    <div class="flex flex-wrap gap-2 mt-3">
+                        <span
+                            class="inline-flex items-center rounded-md bg-pink-50 dark:bg-pink-900/30 px-2 py-0.5 text-xs font-medium text-pink-600 dark:text-pink-300 ring-1 ring-inset ring-pink-600/10 dark:ring-pink-400/20">#家庭</span>
+                    </div>
+                </div>
+                <div
+                    class="flex h-full items-center justify-center self-center shrink-0 text-text-secondary/50 group-hover:text-primary transition-colors">
+                    <span class="material-symbols-outlined">chevron_right</span>
+                </div>
+            </div>
+        </article>
+        <!-- List Item 4 -->
+        <article
+            class="group relative flex flex-col gap-2 rounded-2xl bg-white dark:bg-surface-dark p-4 shadow-sm border border-slate-200 dark:border-slate-800/60 active:scale-[0.99] transition-all duration-200 opacity-75">
+            <div class="flex items-start justify-between gap-4">
+                <div
+                    class="flex flex-col items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800/50 min-w-[3.5rem] h-[3.5rem] shrink-0 border border-slate-200 dark:border-slate-700/50">
+                    <span class="text-lg font-bold text-slate-900 dark:text-white leading-none mt-1">18</span>
+                    <span class="text-[10px] font-medium uppercase text-text-secondary">10月</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center justify-between mb-1">
+                        <h3 class="text-base font-bold text-slate-900 dark:text-white truncate decoration-slate-400">
+                            周总结报告</h3>
+                        <span class="material-symbols-outlined text-[16px] text-primary">cloud_done</span>
+                    </div>
+                    <p class="text-sm text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed italic">
+                        本周主要完成了3个主要任务。效率有所提升，但是休息时间不足。下周需要...
+                    </p>
+                    <div class="flex flex-wrap gap-2 mt-3">
+                        <span
+                            class="inline-flex items-center rounded-md bg-slate-100 dark:bg-slate-700/50 px-2 py-0.5 text-xs font-medium text-slate-600 dark:text-slate-300 ring-1 ring-inset ring-slate-500/10 dark:ring-slate-400/20">#总结</span>
+                    </div>
+                </div>
+                <div
+                    class="flex h-full items-center justify-center self-center shrink-0 text-text-secondary/50 group-hover:text-primary transition-colors">
+                    <span class="material-symbols-outlined">chevron_right</span>
+                </div>
+            </div>
+        </article>
+    </main>
+    <!-- Floating Action Button (FAB) -->
+    <div class="fixed bottom-6 right-6 z-30">
+        <button
+            class="group flex size-14 items-center justify-center rounded-full bg-primary text-white shadow-[0_8px_30px_rgb(19,91,236,0.4)] transition-all hover:scale-110 hover:shadow-[0_8px_35px_rgb(19,91,236,0.6)] active:scale-95 focus:outline-none focus:ring-4 focus:ring-primary/30">
+            <span
+                class="material-symbols-outlined text-[32px] transition-transform duration-300 group-hover:rotate-90">add</span>
+        </button>
+    </div>
+</body>
+
+</html>
