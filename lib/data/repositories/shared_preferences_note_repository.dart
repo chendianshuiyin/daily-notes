@@ -90,6 +90,9 @@ class SharedPreferencesNoteRepository implements NoteRepository {
 
     final prefs = await SharedPreferences.getInstance();
     final encoded = jsonEncode(notes.map((note) => note.toJson()).toList());
-    await prefs.setString(_notesKey, encoded);
+    final didSave = await prefs.setString(_notesKey, encoded);
+    if (!didSave) {
+      throw StateError('Failed to persist notes');
+    }
   }
 }

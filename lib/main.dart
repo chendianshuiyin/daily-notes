@@ -10,17 +10,31 @@ void main() {
 }
 
 /// Daily Notes 应用主入口
-class DailyNotesApp extends StatelessWidget {
+class DailyNotesApp extends StatefulWidget {
   const DailyNotesApp({super.key, this.noteRepository});
 
   final NoteRepository? noteRepository;
+
+  @override
+  State<DailyNotesApp> createState() => _DailyNotesAppState();
+}
+
+class _DailyNotesAppState extends State<DailyNotesApp> {
+  final _router = AppRouter.createRouter();
+
+  @override
+  void dispose() {
+    _router.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(
-          create: (_) => NoteProvider(repository: noteRepository)..loadNotes(),
+          create: (_) =>
+              NoteProvider(repository: widget.noteRepository)..loadNotes(),
         ),
         ChangeNotifierProvider(
           create: (_) => AppSettingsProvider()..loadSettings(),
@@ -38,7 +52,7 @@ class DailyNotesApp extends StatelessWidget {
             themeMode: settings.themeMode,
 
             // 路由配置
-            routerConfig: AppRouter.router,
+            routerConfig: _router,
           );
         },
       ),

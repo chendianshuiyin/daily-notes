@@ -17,40 +17,43 @@ class AppRouter {
   static const String history = '/history';
   static const String settings = '/settings';
 
-  /// 路由配置
-  static final GoRouter router = GoRouter(
-    initialLocation: home,
-    routes: [
-      // 首页
-      GoRoute(
-        path: home,
-        name: 'home',
-        pageBuilder: (context, state) => const MaterialPage(child: HomePage()),
-      ),
-      // 编辑页面
-      GoRoute(
-        path: editor,
-        name: 'editor',
-        pageBuilder: (context, state) {
-          // 获取传递的笔记 ID 参数
-          final noteId = state.uri.queryParameters['noteId'];
-          return MaterialPage(child: EditorPage(noteId: noteId));
-        },
-      ),
-      // 历史页面
-      GoRoute(
-        path: history,
-        name: 'history',
-        pageBuilder: (context, state) =>
-            const MaterialPage(child: HistoryPage()),
-      ),
-      // 设置页面
-      GoRoute(
-        path: settings,
-        name: 'settings',
-        pageBuilder: (context, state) =>
-            const MaterialPage(child: SettingsPage()),
-      ),
-    ],
-  );
+  /// 为每个应用实例创建独立路由，避免跨生命周期保留导航状态。
+  static GoRouter createRouter() {
+    return GoRouter(
+      initialLocation: home,
+      routes: [
+        // 首页
+        GoRoute(
+          path: home,
+          name: 'home',
+          pageBuilder: (context, state) =>
+              const MaterialPage(child: HomePage()),
+        ),
+        // 编辑页面
+        GoRoute(
+          path: editor,
+          name: 'editor',
+          pageBuilder: (context, state) {
+            // 获取传递的笔记 ID 参数
+            final noteId = state.uri.queryParameters['noteId'];
+            return MaterialPage(child: EditorPage(noteId: noteId));
+          },
+        ),
+        // 历史页面
+        GoRoute(
+          path: history,
+          name: 'history',
+          pageBuilder: (context, state) =>
+              const MaterialPage(child: HistoryPage()),
+        ),
+        // 设置页面
+        GoRoute(
+          path: settings,
+          name: 'settings',
+          pageBuilder: (context, state) =>
+              const MaterialPage(child: SettingsPage()),
+        ),
+      ],
+    );
+  }
 }
