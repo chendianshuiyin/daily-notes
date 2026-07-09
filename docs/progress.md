@@ -88,6 +88,26 @@
 
 ### Remaining Release Work
 
-- Install-test the signed APK on a real Android phone or emulator.
 - Publish a GitHub release and attach the signed APK.
 - Back up the release keystore and `android/key.properties` securely; losing them prevents publishing compatible upgrades with the same signing identity.
+
+## 2026-07-10 Android install smoke test
+
+### Completed
+
+- Started emulator `Medium_Phone_API_36.1`.
+- Installed the signed release APK with `adb install -r`.
+- Launched `com.chendianshuiyin.dailynotes/.MainActivity`.
+- Created and saved a smoke-test note in the installed app.
+- Captured screenshot evidence at `docs/pictures/android-smoke-after-save.png`.
+
+### Verification
+
+- `adb shell pm path com.chendianshuiyin.dailynotes`: returned installed APK path under `/data/app`.
+- `adb shell pidof com.chendianshuiyin.dailynotes`: returned PID `3098`.
+- `uiautomator dump`: confirmed home UI text, `今日 1`, `全部 1`, and saved note `Android smoke note`.
+
+### Remaining Release Work
+
+- Publish a GitHub release and attach the signed APK.
+- Run a real-phone install check when a USB device is available; emulator install/use smoke test is passing.
