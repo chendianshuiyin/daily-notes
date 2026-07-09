@@ -12,6 +12,8 @@ Daily Notes now has a usable MVP workflow and verified local release packages fo
 - Android release signing configured and committed in `707cf4c`.
 - Android signed APK install smoke test committed in `e8cdcb1`.
 - Multi-platform release builds recorded and committed in `b3b04ba`.
+- Release notes/status report committed in `753a3ab`.
+- Annotated tag `v1.0.0` pushed to GitHub.
 
 ## Release Packages
 
@@ -34,6 +36,7 @@ Local packages are under ignored `dist/`:
 ## Remaining Work
 
 - Create the GitHub Release for tag `v1.0.0` and upload the three `dist/` assets.
+- Current blocker: no `GH_TOKEN`/`GITHUB_TOKEN`, and GitHub CLI is not installed/authenticated in this environment. GitHub API returned `404` for the `v1.0.0` Release, confirming it has not been created yet.
 - Back up `C:\Users\cytus\.daily_notes\release\daily-notes-release.jks` and `android/key.properties` securely.
 - Run a real Android phone install check when a USB device is available.
 - Produce iOS/macOS release builds on a macOS signing host if those platforms are required for public distribution.

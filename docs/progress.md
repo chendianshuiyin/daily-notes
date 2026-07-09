@@ -134,3 +134,21 @@
 
 - iOS and macOS release builds require an Apple build/signing environment and were not built on this Windows host.
 - Linux release build requires a Linux host/toolchain and was not built on this Windows host.
+
+## 2026-07-10 GitHub release preparation
+
+### Completed
+
+- Added GitHub Release notes at `docs/github_release_v1.0.0.md`.
+- Added release status report at `docs/release_status_report.md`.
+- Created and pushed annotated tag `v1.0.0`.
+- Confirmed local release assets are ready under ignored `dist/`.
+
+### Verification
+
+- `git ls-remote --tags origin v1.0.0`: returned remote tag ref.
+- GitHub Releases API for `v1.0.0`: returned `404`, so the GitHub Release has not been created yet.
+
+### Blocker
+
+- No `GH_TOKEN`/`GITHUB_TOKEN` is available and GitHub CLI is not installed/authenticated, so creating the GitHub Release and uploading assets requires GitHub write credentials or an authenticated browser/CLI session.
