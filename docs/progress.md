@@ -49,3 +49,22 @@
 ### Verification
 
 - `flutter build apk --debug`: passed with the new Android application ID.
+
+## 2026-07-10 Android release APK smoke build
+
+### Completed
+
+- Built `build/app/outputs/flutter-apk/app-release.apk`.
+- Verified APK signature with `apksigner verify --print-certs`.
+- Captured package hashes for traceability.
+
+### Verification
+
+- `flutter build apk --release`: passed, output size 49,195,028 bytes.
+- `app-release.apk` SHA-256: `CC6AB70E04D5075C47D56C4D5FE28B0A7BB7B1CC8019FC9101DE497FFD87D257`.
+- `app-debug.apk` SHA-256: `E1438F3C567BFEFD00F924E7688EE13F90F4B23901F8E1510F1EABFE9103CE88`.
+
+### Release Blockers
+
+- The current release APK is signed with the Android debug certificate (`CN=Android Debug`) because `build.gradle.kts` still uses the debug signing config for release builds.
+- Before a public GitHub release, configure a private release keystore outside the repository, rebuild, install-test on a real Android device, and attach the signed APK to the GitHub release.
