@@ -246,3 +246,24 @@
 ### Verification
 
 - `gh repo view chendianshuiyin/daily-notes --json name,description,homepageUrl,repositoryTopics,url`: confirmed description, homepage, and topics.
+
+## 2026-07-10 App icon and platform branding
+
+### Completed
+
+- Added a custom Daily Notes app icon with editable source at `assets/brand/app_icon.svg`.
+- Generated launcher/icon assets for Android, Web, Windows, iOS, and macOS.
+- Added a Linux window icon asset and installed it into the Linux release bundle.
+- Updated Web manifest/title metadata, Windows version metadata, Linux application ID/window title, and Apple bundle identifiers/display names.
+- Added `tools/generate_app_icons.ps1` so platform icon assets can be regenerated from one source design.
+
+### Verification
+
+- Icon size spot check passed for 48, 192, 512, and 1024 px PNGs plus Windows `.ico`.
+- `flutter analyze`: passed with no issues.
+- `flutter test`: passed, 3 tests.
+- `flutter build apk --release`: passed.
+- `flutter build web --release`: passed.
+- `flutter build windows --release`: passed.
+- `apksigner verify --print-certs`: passed.
+- `aapt dump badging`: confirmed package `com.chendianshuiyin.dailynotes`, label `Daily Notes`, and launcher icon resources.

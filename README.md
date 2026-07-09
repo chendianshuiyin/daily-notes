@@ -73,6 +73,7 @@ scripts/create_github_release.ps1
 - `lib/data`: 数据模型和本地 repository 实现。
 - `lib/domain`: repository 接口。
 - `lib/presentation`: 页面、路由和 Provider 状态。
+- `assets/brand`: 应用图标源文件和可复用品牌资产。
 - `test`: widget tests。
 - `docs`: 计划、进度、截图、发布报告和 Release notes。
 - `scripts`: 发布辅助脚本。
