@@ -152,3 +152,7 @@
 ### Blocker
 
 - No `GH_TOKEN`/`GITHUB_TOKEN` is available and GitHub CLI is not installed/authenticated, so creating the GitHub Release and uploading assets requires GitHub write credentials or an authenticated browser/CLI session.
+
+### Follow-up Tooling
+
+- Added `scripts/create_github_release.ps1` to publish tag `v1.0.0` with the prepared `dist/` assets once GitHub CLI is installed and authenticated.
