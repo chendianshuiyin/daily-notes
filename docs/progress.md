@@ -66,5 +66,28 @@
 
 ### Release Blockers
 
-- The current release APK is signed with the Android debug certificate (`CN=Android Debug`) because `build.gradle.kts` still uses the debug signing config for release builds.
-- Before a public GitHub release, configure a private release keystore outside the repository, rebuild, install-test on a real Android device, and attach the signed APK to the GitHub release.
+- Resolved by the Android release signing work below.
+
+## 2026-07-10 Android release signing
+
+### Completed
+
+- Added Gradle release signing configuration that reads `android/key.properties`.
+- Generated a local private release keystore at `C:\Users\cytus\.daily_notes\release\daily-notes-release.jks`.
+- Kept `android/key.properties` ignored by Git; signing secrets are not committed.
+- Rebuilt `build/app/outputs/flutter-apk/app-release.apk` with the release certificate.
+
+### Verification
+
+- `flutter build apk --release`: passed, output size 49,195,028 bytes.
+- `apksigner verify --print-certs`: passed.
+- Release signer DN: `CN=Daily Notes, OU=Release, O=chendianshuiyin, L=Shanghai, ST=Shanghai, C=CN`.
+- Release signer SHA-256 digest: `750fe89e137d070f7620dfe198486f4dae01b5087833995e1b651bccedc163d5`.
+- Signed `app-release.apk` SHA-256: `CE24E5AE8EE1AFB495AEB83987F96A901748A38F26DF0434DB174E711A499943`.
+- `aapt dump badging`: package `com.chendianshuiyin.dailynotes`, version `1.0.0` (`versionCode=1`), min SDK `24`, target SDK `36`, label `Daily Notes`.
+
+### Remaining Release Work
+
+- Install-test the signed APK on a real Android phone or emulator.
+- Publish a GitHub release and attach the signed APK.
+- Back up the release keystore and `android/key.properties` securely; losing them prevents publishing compatible upgrades with the same signing identity.
