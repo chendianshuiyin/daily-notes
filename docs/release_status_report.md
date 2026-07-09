@@ -36,8 +36,8 @@ Local packages are under ignored `dist/`:
 ## Remaining Work
 
 - Create the GitHub Release for tag `v1.0.0` and upload the three `dist/` assets.
-- Current blocker: no `GH_TOKEN`/`GITHUB_TOKEN`, and GitHub CLI is not installed/authenticated in this environment. GitHub API returned `404` for the `v1.0.0` Release, confirming it has not been created yet.
-- Once GitHub CLI is installed and authenticated, run `scripts/create_github_release.ps1` from the repository root to publish the prepared assets.
+- Current blocker: no `GH_TOKEN`/`GITHUB_TOKEN`, and GitHub CLI is installed but not authenticated in this environment. A `gh auth login --web --clipboard` attempt was started but authorization was not completed before timeout. GitHub API returned `404` for the `v1.0.0` Release, confirming it has not been created yet.
+- Once GitHub CLI is authenticated with `gh auth login`, run `scripts/create_github_release.ps1` from the repository root to publish the prepared assets.
 - Back up `C:\Users\cytus\.daily_notes\release\daily-notes-release.jks` and `android/key.properties` securely.
 - Run a real Android phone install check when a USB device is available.
 - Produce iOS/macOS release builds on a macOS signing host if those platforms are required for public distribution.

@@ -14,8 +14,19 @@ function Require-Command {
     }
 }
 
-Require-Command "gh"
 Require-Command "git"
+
+$ghCommand = Get-Command "gh" -ErrorAction SilentlyContinue
+if (-not $ghCommand) {
+    $fallbackGh = "C:\Program Files\GitHub CLI\gh.exe"
+    if (Test-Path -LiteralPath $fallbackGh) {
+        $ghPath = $fallbackGh
+    } else {
+        throw "Missing required command: gh"
+    }
+} else {
+    $ghPath = $ghCommand.Source
+}
 
 $repoRoot = git rev-parse --show-toplevel
 Set-Location $repoRoot
@@ -36,5 +47,12 @@ foreach ($asset in $assets) {
     }
 }
 
-gh auth status
-gh release create $Tag @assets --title $Title --notes-file $NotesFile
+& $ghPath auth status
+if ($LASTEXITCODE -ne 0) {
+    throw "GitHub CLI is not authenticated. Run 'gh auth login' first."
+}
+
+& $ghPath release create $Tag @assets --title $Title --notes-file $NotesFile
+if ($LASTEXITCODE -ne 0) {
+    throw "GitHub Release creation failed."
+}

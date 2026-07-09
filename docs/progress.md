@@ -156,3 +156,20 @@
 ### Follow-up Tooling
 
 - Added `scripts/create_github_release.ps1` to publish tag `v1.0.0` with the prepared `dist/` assets once GitHub CLI is installed and authenticated.
+
+## 2026-07-10 GitHub CLI install
+
+### Completed
+
+- Installed GitHub CLI `2.96.0` with `winget`.
+- Updated `scripts/create_github_release.ps1` so it can use `C:\Program Files\GitHub CLI\gh.exe` even before PATH refresh.
+
+### Verification
+
+- `C:\Program Files\GitHub CLI\gh.exe --version`: passed.
+- `gh auth status`: not authenticated.
+- `gh auth login --web --clipboard`: attempted, but authorization was not completed before timeout.
+
+### Blocker
+
+- GitHub Release creation still requires `gh auth login` or a valid `GH_TOKEN`/`GITHUB_TOKEN`.
