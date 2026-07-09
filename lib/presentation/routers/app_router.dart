@@ -20,7 +20,6 @@ class AppRouter {
   /// 路由配置
   static final GoRouter router = GoRouter(
     initialLocation: home,
-    debugLogDiagnostics: true,
     routes: [
       // 首页
       GoRoute(
