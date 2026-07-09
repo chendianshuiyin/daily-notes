@@ -1,7 +1,7 @@
 param(
-    [string]$Tag = "v1.0.0",
-    [string]$Title = "Daily Notes v1.0.0",
-    [string]$NotesFile = "docs/github_release_v1.0.0.md"
+    [string]$Tag = "v1.0.1",
+    [string]$Title = "Daily Notes v1.0.1",
+    [string]$NotesFile = "docs/github_release_v1.0.1.md"
 )
 
 $ErrorActionPreference = "Stop"
@@ -32,9 +32,9 @@ $repoRoot = git rev-parse --show-toplevel
 Set-Location $repoRoot
 
 $assets = @(
-    "dist/daily-notes-v1.0.0-android-release.apk",
-    "dist/daily-notes-v1.0.0-windows-x64.zip",
-    "dist/daily-notes-v1.0.0-web.zip"
+    "dist/daily-notes-v1.0.1-android-release.apk",
+    "dist/daily-notes-v1.0.1-windows-x64.zip",
+    "dist/daily-notes-v1.0.1-web.zip"
 )
 
 if (-not (Test-Path -LiteralPath $NotesFile)) {

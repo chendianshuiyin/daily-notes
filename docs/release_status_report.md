@@ -14,30 +14,36 @@ Daily Notes now has a usable MVP workflow and verified local release packages fo
 - Multi-platform release builds recorded and committed in `b3b04ba`.
 - Release notes/status report committed in `753a3ab`.
 - Annotated tag `v1.0.0` pushed to GitHub.
+- Version `1.0.1+2` prepared after adding persisted theme settings.
 
 ## Release Packages
 
 Local packages are under ignored `dist/`:
 
-- `dist/daily-notes-v1.0.0-android-release.apk`
-- `dist/daily-notes-v1.0.0-windows-x64.zip`
-- `dist/daily-notes-v1.0.0-web.zip`
+- `dist/daily-notes-v1.0.1-android-release.apk`
+- `dist/daily-notes-v1.0.1-windows-x64.zip`
+- `dist/daily-notes-v1.0.1-web.zip`
 
 ## Verification Summary
 
 - Analyzer: passed.
-- Widget tests: passed.
-- Android release build: passed.
+- Widget tests: passed, 3 tests.
+- Android release build: passed for `1.0.1+2`.
 - Android release signature: passed; signer `CN=Daily Notes, OU=Release, O=chendianshuiyin, L=Shanghai, ST=Shanghai, C=CN`.
-- Android emulator install/use smoke test: passed.
+- Android emulator install/use smoke test: passed for `v1.0.1`; `versionName=1.0.1`, `versionCode=2`.
 - Web release build: passed.
 - Windows release build: passed.
 
+## Current Release Asset Hashes
+
+- `daily-notes-v1.0.1-android-release.apk`: `312388469314F86C46B814E1EFCC4F3D32390F2CE9E8678B057E4648C63CEED9`
+- `daily-notes-v1.0.1-windows-x64.zip`: `D9DDC461D75A927BE7C2970B796E61FC8258BF8EFAD4AC7707277D35769BC361`
+- `daily-notes-v1.0.1-web.zip`: `54928E0D0BF971369EE39D317FE65C4794846F2A05DB6306837A55B4E86975D8`
+
 ## Remaining Work
 
-- Create the GitHub Release for tag `v1.0.0` and upload the three `dist/` assets.
-- Current blocker: no `GH_TOKEN`/`GITHUB_TOKEN`, and GitHub CLI is installed but not authenticated in this environment. A `gh auth login --web --clipboard` attempt was started but authorization was not completed before timeout. GitHub API returned `404` for the `v1.0.0` Release, confirming it has not been created yet.
-- Once GitHub CLI is authenticated with `gh auth login`, run `scripts/create_github_release.ps1` from the repository root to publish the prepared assets.
+- Create the GitHub Release for tag `v1.0.1` and upload the three `dist/` assets.
+- GitHub CLI is now authenticated; run `scripts/create_github_release.ps1` from the repository root after the `v1.0.1` tag is pushed.
 - Back up `C:\Users\cytus\.daily_notes\release\daily-notes-release.jks` and `android/key.properties` securely.
 - Run a real Android phone install check when a USB device is available.
 - Produce iOS/macOS release builds on a macOS signing host if those platforms are required for public distribution.

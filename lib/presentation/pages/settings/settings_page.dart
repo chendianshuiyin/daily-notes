@@ -45,7 +45,7 @@ class SettingsPage extends StatelessWidget {
                   _SettingsItem(
                     icon: Icons.info_outlined,
                     title: '版本',
-                    subtitle: '1.0.0',
+                    subtitle: '1.0.1',
                     showChevron: false,
                   ),
                 ],

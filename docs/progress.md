@@ -188,3 +188,31 @@
 - `dart format lib test`: passed.
 - `flutter analyze`: passed with no issues.
 - `flutter test`: passed, 3 tests.
+
+## 2026-07-10 Version 1.0.1 preparation
+
+### Completed
+
+- Bumped app version to `1.0.1+2` after adding persisted theme settings.
+- Updated Settings version display to `1.0.1`.
+- Replaced pending GitHub Release notes with `docs/github_release_v1.0.1.md`.
+- Updated `scripts/create_github_release.ps1` defaults and asset names for `v1.0.1`.
+
+### Verification
+
+- `dart format lib test`: passed.
+- `flutter analyze`: passed with no issues.
+- `flutter test`: passed, 3 tests.
+- `flutter build apk --release`: passed.
+- `flutter build web --release`: passed.
+- `flutter build windows --release`: passed.
+- `apksigner verify --print-certs`: passed.
+- `aapt dump badging`: package `com.chendianshuiyin.dailynotes`, version `1.0.1` (`versionCode=2`), min SDK `24`, target SDK `36`, label `Daily Notes`.
+- `adb install -r dist/daily-notes-v1.0.1-android-release.apk`: passed on emulator `Medium_Phone_API_36.1`.
+- Captured screenshot evidence at `docs/pictures/android-v1.0.1-home.png`.
+
+### Release Assets
+
+- `dist/daily-notes-v1.0.1-android-release.apk` SHA-256: `312388469314F86C46B814E1EFCC4F3D32390F2CE9E8678B057E4648C63CEED9`.
+- `dist/daily-notes-v1.0.1-windows-x64.zip` SHA-256: `D9DDC461D75A927BE7C2970B796E61FC8258BF8EFAD4AC7707277D35769BC361`.
+- `dist/daily-notes-v1.0.1-web.zip` SHA-256: `54928E0D0BF971369EE39D317FE65C4794846F2A05DB6306837A55B4E86975D8`.
