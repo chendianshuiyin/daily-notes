@@ -23,3 +23,16 @@
 
 - This is a pragmatic persistence step for a usable MVP. The previous task plan references Isar and rich-text editing, but those are not yet implemented.
 - Android release readiness still requires package metadata review, icon/signing checks, APK build verification, installation testing, GitHub release creation, and a final report.
+
+## 2026-07-10 Android build environment
+
+### Completed
+
+- Diagnosed Android debug build failure caused by malformed local NDK `28.2.13676358`.
+- Moved the malformed NDK directory to `28.2.13676358.broken-20260710` and allowed Gradle to reinstall NDK, Build-Tools 35, and CMake 3.22.1.
+- Built `build/app/outputs/flutter-apk/app-debug.apk` successfully.
+- Added `kotlin.incremental=false` to reduce Kotlin incremental cache failures on Windows cross-drive builds.
+
+### Verification
+
+- `flutter build apk --debug`: produced `app-debug.apk` after SDK repair.
