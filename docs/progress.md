@@ -267,3 +267,50 @@
 - `flutter build windows --release`: passed.
 - `apksigner verify --print-certs`: passed.
 - `aapt dump badging`: confirmed package `com.chendianshuiyin.dailynotes`, label `Daily Notes`, and launcher icon resources.
+
+## 2026-07-10 Editor draft protection and persistence reliability
+
+### Completed
+
+- Added a confirmation dialog before leaving an editor with unsaved changes.
+- Kept the current draft visible and showed actionable feedback when persistence fails.
+- Added error feedback for note load, archive, and delete failures.
+- Made `SharedPreferencesNoteRepository` reject unsuccessful writes instead of silently reporting success.
+- Replaced the shared static router with an app-owned router instance and lifecycle cleanup.
+- Added repository persistence coverage and widget tests for unsaved drafts and failed saves.
+
+### Verification
+
+- `dart format lib test`: passed.
+- `flutter analyze`: passed with no issues.
+- `flutter test`: passed, 6 tests.
+- Commit `9d33004` pushed to `origin/main` as `feat: protect unsaved note drafts`.
+
+## 2026-07-10 Version 1.0.2 release preparation
+
+### Completed
+
+- Bumped the app version to `1.0.2+3` and updated the Settings version display.
+- Updated Linux workflow and GitHub Release helper defaults for `v1.0.2`.
+- Built and packaged signed Android, Web, and Windows release assets.
+- Verified an upgrade install over v1.0.1 preserved its existing note.
+- Created and saved a v1.0.2 smoke note, cold-restarted the app, and confirmed the note persisted.
+- Captured screenshot evidence at `docs/pictures/android-v1.0.2-home.png`.
+
+### Verification
+
+- `flutter analyze`: passed with no issues.
+- `flutter test`: passed, 6 tests.
+- `flutter build apk --release`: passed.
+- `flutter build web --release`: passed.
+- `flutter build windows --release`: passed.
+- `apksigner verify --print-certs`: passed.
+- `aapt dump badging`: package `com.chendianshuiyin.dailynotes`, version `1.0.2` (`versionCode=3`), min SDK `24`, target SDK `36`, label `Daily Notes`.
+- `adb install -r`: passed on emulator `Medium_Phone_API_36.1`.
+- `uiautomator dump`: confirmed two persisted notes after the v1.0.2 cold restart.
+
+### Local Release Assets
+
+- `daily-notes-v1.0.2-android-release.apk`: 49,402,296 bytes, SHA-256 `97098D8C5476F46F2064E98A6137A25DB47FA904171CD2C6E0E61C2D4011F047`.
+- `daily-notes-v1.0.2-windows-x64.zip`: 11,861,254 bytes, SHA-256 `1A29E0BA43F213495568C8B25DD7D3390EF94E77DBE37CB60493E64EBF45E11B`.
+- `daily-notes-v1.0.2-web.zip`: 10,857,015 bytes, SHA-256 `92FC877A5C231DC3773B1DAA8BA836E775C2A8AED1A5D2588DE2415247AB0176`.

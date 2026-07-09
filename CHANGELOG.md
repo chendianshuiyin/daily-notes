@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.0.2 - 2026-07-10
+
+### Added
+
+- Custom Daily Notes app icons for Android, Web, Windows, Linux, iOS, and macOS.
+- Confirmation before discarding an unsaved note draft.
+- Focused repository and widget tests for persistence and failed saves.
+
+### Changed
+
+- Standardized platform names and identifiers around `Daily Notes` and `com.chendianshuiyin.dailynotes`.
+- Kept editor content visible and reported an error when a save cannot be persisted.
+- Created a fresh `GoRouter` for each app instance and disposed it with the app lifecycle.
+- Bumped app version to `1.0.2+3`.
+
+### Verified
+
+- `flutter analyze`
+- `flutter test`
+- Android, Web, Windows, and Linux release builds
+- Android APK signature, package metadata, installation, launch, and note persistence
+
 ## 1.0.1 - 2026-07-10
 
 ### Added
