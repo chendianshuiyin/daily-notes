@@ -111,3 +111,26 @@
 
 - Publish a GitHub release and attach the signed APK.
 - Run a real-phone install check when a USB device is available; emulator install/use smoke test is passing.
+
+## 2026-07-10 Multi-platform release builds
+
+### Completed
+
+- Built Android release APK.
+- Built Web release output at `build/web`.
+- Built Windows release output at `build/windows/x64/runner/Release/daily_notes.exe`.
+- Packaged local release assets under ignored `dist/`.
+
+### Verification
+
+- `flutter build apk --release`: passed.
+- `flutter build web --release`: passed; output `build/web`.
+- `flutter build windows --release`: passed; output `build/windows/x64/runner/Release/daily_notes.exe`.
+- `dist/daily-notes-v1.0.0-android-release.apk` SHA-256: `CE24E5AE8EE1AFB495AEB83987F96A901748A38F26DF0434DB174E711A499943`.
+- `dist/daily-notes-v1.0.0-windows-x64.zip` SHA-256: `1521801DCFCE7A83913650CC34E0759F33D65FD7C3CBB82DC511BA6C014D1C9E`.
+- `dist/daily-notes-v1.0.0-web.zip` SHA-256: `0B2F63D01D85A7231B22AF4C315A7811E6F975E30D10C55FE40FDDF7C0F53419`.
+
+### Platform Notes
+
+- iOS and macOS release builds require an Apple build/signing environment and were not built on this Windows host.
+- Linux release build requires a Linux host/toolchain and was not built on this Windows host.
