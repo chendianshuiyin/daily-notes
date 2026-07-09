@@ -36,3 +36,16 @@
 ### Verification
 
 - `flutter build apk --debug`: produced `app-debug.apk` after SDK repair.
+
+## 2026-07-10 Android app identity
+
+### Completed
+
+- Updated Android `namespace` and `applicationId` to `com.chendianshuiyin.dailynotes`.
+- Updated `MainActivity` package to match the release identity.
+- Updated Android app label to `Daily Notes`.
+- Replaced the default Flutter project description in `pubspec.yaml`.
+
+### Verification
+
+- `flutter build apk --debug`: passed with the new Android application ID.
