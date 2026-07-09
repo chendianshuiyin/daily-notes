@@ -36,4 +36,18 @@ void main() {
     expect(find.text('可用性测试笔记'), findsWidgets);
     expect(find.textContaining('可以保存并显示'), findsWidgets);
   });
+
+  testWidgets('Persists theme mode from settings', (WidgetTester tester) async {
+    await tester.pumpWidget(const DailyNotesApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('设置'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('深色'));
+    await tester.pumpAndSettle();
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('daily_notes.theme_mode'), 'dark');
+  });
 }

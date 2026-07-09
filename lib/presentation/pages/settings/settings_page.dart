@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../providers/providers.dart';
 
 /// 设置页面
 ///
@@ -16,44 +18,41 @@ class SettingsPage extends StatelessWidget {
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
-      body: ListView(
-        children: [
-          // 外观设置
-          const _SettingsSection(
-            title: '外观',
+      body: Consumer<AppSettingsProvider>(
+        builder: (context, settings, child) {
+          return ListView(
             children: [
-              _SettingsItem(
-                icon: Icons.palette_outlined,
-                title: '主题',
-                subtitle: '跟随系统',
+              _SettingsSection(
+                title: '外观',
+                children: [_ThemeModeItem(settings: settings)],
+              ),
+              const Divider(),
+              const _SettingsSection(
+                title: '同步',
+                children: [
+                  _SettingsItem(
+                    icon: Icons.cloud_outlined,
+                    title: 'WebDAV 同步',
+                    subtitle: '未配置',
+                    showChevron: false,
+                  ),
+                ],
+              ),
+              const Divider(),
+              const _SettingsSection(
+                title: '关于',
+                children: [
+                  _SettingsItem(
+                    icon: Icons.info_outlined,
+                    title: '版本',
+                    subtitle: '1.0.0',
+                    showChevron: false,
+                  ),
+                ],
               ),
             ],
-          ),
-          const Divider(),
-          // 同步设置
-          const _SettingsSection(
-            title: '同步',
-            children: [
-              _SettingsItem(
-                icon: Icons.cloud_outlined,
-                title: 'WebDAV 同步',
-                subtitle: '未配置',
-              ),
-            ],
-          ),
-          const Divider(),
-          // 关于
-          const _SettingsSection(
-            title: '关于',
-            children: [
-              _SettingsItem(
-                icon: Icons.info_outlined,
-                title: '版本',
-                subtitle: '1.0.0',
-              ),
-            ],
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -92,11 +91,13 @@ class _SettingsItem extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.subtitle,
+    this.showChevron = true,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
+  final bool showChevron;
 
   @override
   Widget build(BuildContext context) {
@@ -104,10 +105,48 @@ class _SettingsItem extends StatelessWidget {
       leading: Icon(icon),
       title: Text(title),
       subtitle: Text(subtitle),
-      trailing: const Icon(Icons.chevron_right),
-      onTap: () {
-        // TODO: 处理点击
-      },
+      trailing: showChevron ? const Icon(Icons.chevron_right) : null,
+    );
+  }
+}
+
+class _ThemeModeItem extends StatelessWidget {
+  const _ThemeModeItem({required this.settings});
+
+  final AppSettingsProvider settings;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: const Icon(Icons.palette_outlined),
+      title: const Text('主题'),
+      subtitle: Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: SegmentedButton<ThemeMode>(
+          key: const ValueKey('themeModeSegmentedButton'),
+          segments: const [
+            ButtonSegment(
+              value: ThemeMode.system,
+              icon: Icon(Icons.brightness_auto_outlined),
+              label: Text('系统'),
+            ),
+            ButtonSegment(
+              value: ThemeMode.light,
+              icon: Icon(Icons.light_mode_outlined),
+              label: Text('浅色'),
+            ),
+            ButtonSegment(
+              value: ThemeMode.dark,
+              icon: Icon(Icons.dark_mode_outlined),
+              label: Text('深色'),
+            ),
+          ],
+          selected: {settings.themeMode},
+          onSelectionChanged: (selection) {
+            settings.setThemeMode(selection.first);
+          },
+        ),
+      ),
     );
   }
 }

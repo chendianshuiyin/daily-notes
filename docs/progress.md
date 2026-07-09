@@ -173,3 +173,18 @@
 ### Blocker
 
 - GitHub Release creation still requires `gh auth login` or a valid `GH_TOKEN`/`GITHUB_TOKEN`.
+
+## 2026-07-10 Theme settings
+
+### Completed
+
+- Added `AppSettingsProvider` backed by `SharedPreferences`.
+- Wired `DailyNotesApp` to use persisted `ThemeMode`.
+- Replaced the placeholder theme settings row with a working segmented control for system, light, and dark modes.
+- Added widget coverage for persisting theme mode from the settings page.
+
+### Verification
+
+- `dart format lib test`: passed.
+- `flutter analyze`: passed with no issues.
+- `flutter test`: passed, 3 tests.
