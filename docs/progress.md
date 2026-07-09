@@ -314,3 +314,23 @@
 - `daily-notes-v1.0.2-android-release.apk`: 49,402,296 bytes, SHA-256 `97098D8C5476F46F2064E98A6137A25DB47FA904171CD2C6E0E61C2D4011F047`.
 - `daily-notes-v1.0.2-windows-x64.zip`: 11,861,254 bytes, SHA-256 `1A29E0BA43F213495568C8B25DD7D3390EF94E77DBE37CB60493E64EBF45E11B`.
 - `daily-notes-v1.0.2-web.zip`: 10,857,015 bytes, SHA-256 `92FC877A5C231DC3773B1DAA8BA836E775C2A8AED1A5D2588DE2415247AB0176`.
+
+## 2026-07-10 Version 1.0.2 publication
+
+### Completed
+
+- Committed release preparation as `becea10 chore: prepare v1.0.2 release` and pushed `main`.
+- Created and pushed annotated tag `v1.0.2`.
+- Published GitHub Release `Daily Notes v1.0.2` with Android, Windows, and Web assets.
+- Ran GitHub Actions workflow `29043858648` and uploaded the Linux x64 ZIP plus checksum sidecar.
+- Downloaded the published Android APK and Linux assets for independent hash verification.
+- Updated repository download links, checksums, status report, and final release report.
+
+### Verification
+
+- Release URL: `https://github.com/chendianshuiyin/daily-notes/releases/tag/v1.0.2`.
+- GitHub reports all five assets as `uploaded`.
+- Linux workflow completed successfully in 2 minutes 30 seconds.
+- Published Android APK SHA-256: `97098D8C5476F46F2064E98A6137A25DB47FA904171CD2C6E0E61C2D4011F047`.
+- Published Linux ZIP SHA-256: `ED8660A4ABBF29E6EAC3F6974397D0F942DACEA3D5D3F87281DEEA9893AF29C5`.
+- Linux `.sha256` sidecar contains the same ZIP digest.

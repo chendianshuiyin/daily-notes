@@ -22,7 +22,8 @@ Daily Notes v1.0.2 improves release polish and protects note content during comm
 - `daily-notes-v1.0.2-web.zip`
   - SHA-256: `92FC877A5C231DC3773B1DAA8BA836E775C2A8AED1A5D2588DE2415247AB0176`
 - `daily-notes-v1.0.2-linux-x64.zip`
-  - The accompanying `.sha256` file contains the workflow-generated checksum.
+  - SHA-256: `ED8660A4ABBF29E6EAC3F6974397D0F942DACEA3D5D3F87281DEEA9893AF29C5`
+  - The accompanying `.sha256` file contains the same workflow-generated checksum.
 
 ## Verification
 
@@ -31,7 +32,7 @@ Daily Notes v1.0.2 improves release polish and protects note content during comm
 - Android, Web, and Windows release builds: passed.
 - Android APK signature and package metadata: passed.
 - Android emulator upgrade install, cold launch, create/save, and restart persistence: passed on `Medium_Phone_API_36.1`.
-- Linux release is built from this tag by GitHub Actions.
+- Linux release build and asset upload passed in GitHub Actions run `29043858648`.
 
 ## Android Details
 
