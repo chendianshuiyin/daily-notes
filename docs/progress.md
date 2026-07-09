@@ -216,3 +216,33 @@
 - `dist/daily-notes-v1.0.1-android-release.apk` SHA-256: `312388469314F86C46B814E1EFCC4F3D32390F2CE9E8678B057E4648C63CEED9`.
 - `dist/daily-notes-v1.0.1-windows-x64.zip` SHA-256: `D9DDC461D75A927BE7C2970B796E61FC8258BF8EFAD4AC7707277D35769BC361`.
 - `dist/daily-notes-v1.0.1-web.zip` SHA-256: `54928E0D0BF971369EE39D317FE65C4794846F2A05DB6306837A55B4E86975D8`.
+
+## 2026-07-10 GitHub Release published
+
+### Completed
+
+- Created GitHub Release `v1.0.1`.
+- Uploaded Android, Windows, and Web release assets.
+- Verified the remote Android APK download SHA-256 matches the local artifact.
+- Added repository-facing README, CHANGELOG, and final release report.
+
+### Verification
+
+- `gh release view v1.0.1 --repo chendianshuiyin/daily-notes`: returned published release URL.
+- Release URL: `https://github.com/chendianshuiyin/daily-notes/releases/tag/v1.0.1`.
+- GitHub asset digests match local SHA-256 values for all three assets.
+- Downloaded Android APK from GitHub and verified SHA-256 `312388469314F86C46B814E1EFCC4F3D32390F2CE9E8678B057E4648C63CEED9`.
+
+## 2026-07-10 Repository presentation
+
+### Completed
+
+- Replaced the Flutter template README with a user-facing project overview.
+- Added download links, screenshot, feature list, verification table, development commands, architecture outline, and release report links.
+- Added `CHANGELOG.md`.
+- Added `docs/final_release_report_v1.0.1.md`.
+- Updated GitHub repository description, homepage, and topics.
+
+### Verification
+
+- `gh repo view chendianshuiyin/daily-notes --json name,description,homepageUrl,repositoryTopics,url`: confirmed description, homepage, and topics.

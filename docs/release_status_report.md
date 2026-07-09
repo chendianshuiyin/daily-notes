@@ -2,7 +2,9 @@
 
 ## Current Status
 
-Daily Notes now has a usable MVP workflow and verified local release packages for Android, Windows, and Web. The Android APK is signed with a local release keystore and has passed emulator install and create-note smoke testing.
+Daily Notes now has a usable MVP workflow and a published GitHub Release for Android, Windows, and Web assets. The Android APK is signed with a local release keystore and has passed emulator install and create-note smoke testing.
+
+Release URL: https://github.com/chendianshuiyin/daily-notes/releases/tag/v1.0.1
 
 ## Completed Evidence
 
@@ -15,6 +17,9 @@ Daily Notes now has a usable MVP workflow and verified local release packages fo
 - Release notes/status report committed in `753a3ab`.
 - Annotated tag `v1.0.0` pushed to GitHub.
 - Version `1.0.1+2` prepared after adding persisted theme settings.
+- GitHub Release `v1.0.1` published with Android, Windows, and Web assets.
+- Repository README, CHANGELOG, and final release report added.
+- GitHub repository description, homepage, and topics configured.
 
 ## Release Packages
 
@@ -42,8 +47,6 @@ Local packages are under ignored `dist/`:
 
 ## Remaining Work
 
-- Create the GitHub Release for tag `v1.0.1` and upload the three `dist/` assets.
-- GitHub CLI is now authenticated; run `scripts/create_github_release.ps1` from the repository root after the `v1.0.1` tag is pushed.
 - Back up `C:\Users\cytus\.daily_notes\release\daily-notes-release.jks` and `android/key.properties` securely.
 - Run a real Android phone install check when a USB device is available.
 - Produce iOS/macOS release builds on a macOS signing host if those platforms are required for public distribution.
