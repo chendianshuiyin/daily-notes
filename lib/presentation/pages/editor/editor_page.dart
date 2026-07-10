@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../../data/models/models.dart';
+import '../../../data/services/services.dart';
 import '../../providers/providers.dart';
 import '../../routers/app_router.dart';
 
@@ -21,15 +22,19 @@ class EditorPage extends StatefulWidget {
 class _EditorPageState extends State<EditorPage> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _contentController = TextEditingController();
+  final NoteImageService _imageService = const NoteImageService();
 
   bool _isLoading = false;
   bool _isSaving = false;
   bool _hasLoadedInitialNote = false;
   bool _isDirty = false;
   bool _allowPop = false;
+  bool _isPickingImages = false;
   Note? _currentNote;
+  List<NoteImage> _images = [];
   String _initialTitle = '';
   String _initialContent = '';
+  String _initialImageIds = '';
 
   bool get _isNewNote => widget.noteId == null;
 
@@ -84,6 +89,8 @@ class _EditorPageState extends State<EditorPage> {
     _currentNote = note;
     _initialTitle = note.title;
     _initialContent = note.content;
+    _initialImageIds = _imageIds(note.images);
+    _images = List.of(note.images);
     _titleController.text = note.title;
     _contentController.text = note.content;
     setState(() {
@@ -96,10 +103,10 @@ class _EditorPageState extends State<EditorPage> {
     final title = _titleController.text.trim();
     final content = _contentController.text.trim();
 
-    if (title.isEmpty && content.isEmpty) {
+    if (title.isEmpty && content.isEmpty && _images.isEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('请输入标题或正文')));
+      ).showSnackBar(const SnackBar(content: Text('请输入标题、正文或添加图片')));
       return;
     }
 
@@ -109,6 +116,7 @@ class _EditorPageState extends State<EditorPage> {
         id: _currentNote?.id ?? widget.noteId,
         title: title,
         content: content,
+        images: _images,
       );
 
       if (!mounted) {
@@ -119,6 +127,7 @@ class _EditorPageState extends State<EditorPage> {
         _currentNote = note;
         _initialTitle = note.title;
         _initialContent = note.content;
+        _initialImageIds = _imageIds(note.images);
         _isDirty = false;
         _isSaving = false;
       });
@@ -214,12 +223,94 @@ class _EditorPageState extends State<EditorPage> {
   }
 
   void _handleDraftChanged(String _) {
+    _updateDirtyState();
+  }
+
+  void _updateDirtyState() {
     final isDirty =
         _titleController.text.trim() != _initialTitle ||
-        _contentController.text.trim() != _initialContent;
+        _contentController.text.trim() != _initialContent ||
+        _imageIds(_images) != _initialImageIds;
     if (_isDirty != isDirty) {
       setState(() => _isDirty = isDirty);
     }
+  }
+
+  String _imageIds(Iterable<NoteImage> images) {
+    return images.map((image) => image.id).join('|');
+  }
+
+  Future<void> _pickImages() async {
+    final availableSlots = NoteImageService.maxImagesPerNote - _images.length;
+    if (availableSlots <= 0) {
+      _showError('每条笔记最多添加 4 张图片');
+      return;
+    }
+
+    setState(() => _isPickingImages = true);
+    try {
+      final selected = await _imageService.pickImages(
+        availableSlots: availableSlots,
+      );
+      if (!mounted || selected.isEmpty) {
+        return;
+      }
+      setState(() => _images = [..._images, ...selected]);
+      _updateDirtyState();
+    } on NoteImageException catch (error) {
+      if (mounted) {
+        _showError(error.message);
+      }
+    } catch (error, stackTrace) {
+      debugPrint('Failed to pick note image: $error\n$stackTrace');
+      if (mounted) {
+        _showError('添加图片失败，请重试');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isPickingImages = false);
+      }
+    }
+  }
+
+  void _removeImage(NoteImage image) {
+    setState(() {
+      _images = _images.where((item) => item.id != image.id).toList();
+    });
+    _updateDirtyState();
+  }
+
+  Future<void> _showImagePreview(NoteImage image) async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        child: Stack(
+          children: [
+            InteractiveViewer(
+              minScale: 0.8,
+              maxScale: 4,
+              child: Image.memory(
+                image.bytes,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) => const SizedBox(
+                  height: 240,
+                  child: Center(child: Text('图片无法显示')),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 4,
+              right: 4,
+              child: IconButton.filledTonal(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                icon: const Icon(Icons.close),
+                tooltip: '关闭预览',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _requestLeaveEditor() async {
@@ -365,10 +456,128 @@ class _EditorPageState extends State<EditorPage> {
                           ),
                         ),
                       ),
+                      if (_images.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        _AttachmentStrip(
+                          images: _images,
+                          onPreview: _showImagePreview,
+                          onRemove: _removeImage,
+                        ),
+                      ],
                     ],
                   ),
                 ),
               ),
+        bottomNavigationBar: _isLoading
+            ? null
+            : SafeArea(
+                top: false,
+                child: Container(
+                  height: 56,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surface,
+                    border: Border(
+                      top: BorderSide(
+                        color: Theme.of(context).colorScheme.outlineVariant,
+                      ),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        key: const ValueKey('addNoteImageButton'),
+                        onPressed: _isPickingImages ? null : _pickImages,
+                        icon: _isPickingImages
+                            ? const SizedBox.square(
+                                dimension: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.add_photo_alternate_outlined),
+                        tooltip: '添加图片',
+                      ),
+                      Text(
+                        '${_images.length}/${NoteImageService.maxImagesPerNote}',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      const Spacer(),
+                      Text(
+                        '${_contentController.text.trim().length} 字',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                  ),
+                ),
+              ),
+      ),
+    );
+  }
+}
+
+class _AttachmentStrip extends StatelessWidget {
+  const _AttachmentStrip({
+    required this.images,
+    required this.onPreview,
+    required this.onRemove,
+  });
+
+  final List<NoteImage> images;
+  final ValueChanged<NoteImage> onPreview;
+  final ValueChanged<NoteImage> onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 108,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: images.length,
+        separatorBuilder: (context, index) => const SizedBox(width: 10),
+        itemBuilder: (context, index) {
+          final image = images[index];
+          return Stack(
+            children: [
+              InkWell(
+                key: ValueKey('noteImage-${image.id}'),
+                onTap: () => onPreview(image),
+                borderRadius: BorderRadius.circular(8),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.memory(
+                    image.bytes,
+                    width: 108,
+                    height: 108,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      width: 108,
+                      height: 108,
+                      color: Theme.of(context).colorScheme.surfaceContainerHigh,
+                      alignment: Alignment.center,
+                      child: const Icon(Icons.broken_image_outlined),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 4,
+                right: 4,
+                child: IconButton.filled(
+                  constraints: const BoxConstraints.tightFor(
+                    width: 32,
+                    height: 32,
+                  ),
+                  padding: EdgeInsets.zero,
+                  onPressed: () => onRemove(image),
+                  icon: const Icon(Icons.close, size: 18),
+                  tooltip: '移除图片',
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

@@ -57,6 +57,10 @@ dependencies:
   hive_ce: ^2.19.3
   hive_ce_flutter: ^2.3.4
 
+  # 跨平台图片选择与压缩
+  file_picker: ^11.0.2
+  image: ^4.8.0
+
   # 富文本编辑器 (暂时注释，后续添加)
   # flutter_quill: any
 

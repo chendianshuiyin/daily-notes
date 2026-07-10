@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../../core/utils/utils.dart';
+import '../../../core/widgets/widgets.dart';
 import '../../../data/models/models.dart';
 import '../../providers/providers.dart';
 import '../../routers/app_router.dart';
@@ -181,9 +182,13 @@ class _HistoryNoteTile extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
           ),
         ),
-        leading: Icon(
-          note.isArchived ? Icons.archive_outlined : Icons.description_outlined,
-        ),
+        leading: note.images.isEmpty
+            ? Icon(
+                note.isArchived
+                    ? Icons.archive_outlined
+                    : Icons.description_outlined,
+              )
+            : NoteThumbnail(image: note.images.first),
         trailing: PopupMenuButton<String>(
           onSelected: (value) {
             if (value == 'archive') {

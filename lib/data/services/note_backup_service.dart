@@ -70,6 +70,7 @@ class NoteBackupService {
     final title = map['title'];
     final content = map['content'];
     final isArchived = map['isArchived'];
+    final images = _readImages(map['images'], index);
 
     if (id is! String || id.trim().isEmpty) {
       throw FormatException('第 ${index + 1} 条笔记缺少有效 ID。');
@@ -88,7 +89,35 @@ class NoteBackupService {
       createdAt: _readDate(map['createdAt'], 'createdAt', index: index),
       updatedAt: _readDate(map['updatedAt'], 'updatedAt', index: index),
       isArchived: isArchived,
+      images: images,
     );
+  }
+
+  List<NoteImage> _readImages(Object? value, int noteIndex) {
+    if (value == null) {
+      return const [];
+    }
+    if (value is! List) {
+      throw FormatException('第 ${noteIndex + 1} 条笔记的图片列表无效。');
+    }
+
+    final images = <NoteImage>[];
+    for (var imageIndex = 0; imageIndex < value.length; imageIndex++) {
+      final item = value[imageIndex];
+      if (item is! Map) {
+        throw FormatException(
+          '第 ${noteIndex + 1} 条笔记的第 ${imageIndex + 1} 张图片无效。',
+        );
+      }
+      try {
+        images.add(NoteImage.fromJson(Map<String, dynamic>.from(item)));
+      } on FormatException {
+        throw FormatException(
+          '第 ${noteIndex + 1} 条笔记的第 ${imageIndex + 1} 张图片无效。',
+        );
+      }
+    }
+    return images;
   }
 
   DateTime _readDate(Object? value, String fieldName, {int? index}) {

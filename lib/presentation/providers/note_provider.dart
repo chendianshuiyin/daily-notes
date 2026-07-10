@@ -82,6 +82,7 @@ class NoteProvider extends ChangeNotifier {
     String? id,
     required String title,
     required String content,
+    List<NoteImage>? images,
   }) async {
     final now = DateTime.now();
     final existing = id == null ? null : await ensureNoteById(id);
@@ -92,6 +93,7 @@ class NoteProvider extends ChangeNotifier {
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
       isArchived: existing?.isArchived ?? false,
+      images: images ?? existing?.images ?? const [],
     );
 
     await _repository.upsertNote(note);

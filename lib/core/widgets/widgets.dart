@@ -1,4 +1,2 @@
-/// Core widgets export
-///
-/// 通用 UI 组件导出
-library;
+// Shared UI component exports.
+export 'note_thumbnail.dart';

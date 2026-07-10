@@ -9,9 +9,8 @@ import 'package:daily_notes/data/services/services.dart';
 import 'package:daily_notes/domain/repositories/repositories.dart';
 
 void main() {
-  const testApp = DailyNotesApp(
-    noteRepository: SharedPreferencesNoteRepository(),
-  );
+  const testRepository = SharedPreferencesNoteRepository();
+  const testApp = DailyNotesApp(noteRepository: testRepository);
   String clipboardText = '';
 
   setUp(() {
@@ -50,6 +49,8 @@ void main() {
     await tester.tap(find.byTooltip('新建笔记'));
     await tester.pumpAndSettle();
 
+    expect(find.byTooltip('添加图片'), findsOneWidget);
+
     await tester.enterText(
       find.byKey(const ValueKey('noteTitleField')),
       '可用性测试笔记',
@@ -63,6 +64,46 @@ void main() {
 
     expect(find.text('可用性测试笔记'), findsWidgets);
     expect(find.textContaining('可以保存并显示'), findsWidgets);
+  });
+
+  testWidgets('Displays and removes an existing image attachment', (
+    WidgetTester tester,
+  ) async {
+    final date = DateTime.utc(2026, 7, 10);
+    await testRepository.upsertNote(
+      Note(
+        id: 'image-note',
+        title: '图文笔记',
+        content: '带有一张图片',
+        createdAt: date,
+        updatedAt: date,
+        images: const [
+          NoteImage(
+            id: 'image-1',
+            name: 'pixel.png',
+            mimeType: 'image/png',
+            base64Data:
+                'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+          ),
+        ],
+      ),
+    );
+
+    await tester.pumpWidget(testApp);
+    await tester.pumpAndSettle();
+    expect(find.text('图文笔记'), findsWidgets);
+
+    await tester.tap(find.text('图文笔记').first);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('noteImage-image-1')), findsOneWidget);
+
+    await tester.tap(find.byTooltip('移除图片'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('noteImage-image-1')), findsNothing);
+
+    await tester.tap(find.byIcon(Icons.arrow_back));
+    await tester.pumpAndSettle();
+    expect(find.text('放弃未保存的更改？'), findsOneWidget);
   });
 
   testWidgets('Persists theme mode from settings', (WidgetTester tester) async {

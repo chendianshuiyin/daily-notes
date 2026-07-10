@@ -1,3 +1,5 @@
+import 'note_image.dart';
+
 class Note {
   const Note({
     required this.id,
@@ -6,6 +8,7 @@ class Note {
     required this.createdAt,
     required this.updatedAt,
     this.isArchived = false,
+    this.images = const [],
   });
 
   final String id;
@@ -14,6 +17,7 @@ class Note {
   final DateTime createdAt;
   final DateTime updatedAt;
   final bool isArchived;
+  final List<NoteImage> images;
 
   String get displayTitle {
     final value = title.trim();
@@ -21,10 +25,15 @@ class Note {
   }
 
   String get preview {
-    return content.trim().replaceAll(RegExp(r'\s+'), ' ');
+    final text = content.trim().replaceAll(RegExp(r'\s+'), ' ');
+    if (text.isNotEmpty) {
+      return text;
+    }
+    return images.isEmpty ? '' : '${images.length} 张图片';
   }
 
-  bool get hasBody => title.trim().isNotEmpty || content.trim().isNotEmpty;
+  bool get hasBody =>
+      title.trim().isNotEmpty || content.trim().isNotEmpty || images.isNotEmpty;
 
   Note copyWith({
     String? id,
@@ -33,6 +42,7 @@ class Note {
     DateTime? createdAt,
     DateTime? updatedAt,
     bool? isArchived,
+    List<NoteImage>? images,
   }) {
     return Note(
       id: id ?? this.id,
@@ -41,6 +51,7 @@ class Note {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       isArchived: isArchived ?? this.isArchived,
+      images: images ?? this.images,
     );
   }
 
@@ -52,6 +63,7 @@ class Note {
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
       'isArchived': isArchived,
+      'images': images.map((image) => image.toJson()).toList(),
     };
   }
 
@@ -63,6 +75,7 @@ class Note {
       createdAt: _readDate(json['createdAt']),
       updatedAt: _readDate(json['updatedAt']),
       isArchived: json['isArchived'] as bool? ?? false,
+      images: _readImages(json['images']),
     );
   }
 
@@ -71,5 +84,24 @@ class Note {
       return DateTime.tryParse(value) ?? DateTime.now();
     }
     return DateTime.now();
+  }
+
+  static List<NoteImage> _readImages(Object? value) {
+    if (value is! List) {
+      return const [];
+    }
+
+    final images = <NoteImage>[];
+    for (final item in value) {
+      if (item is! Map) {
+        continue;
+      }
+      try {
+        images.add(NoteImage.fromJson(Map<String, dynamic>.from(item)));
+      } on FormatException {
+        // Keep the note readable when a single legacy attachment is damaged.
+      }
+    }
+    return List.unmodifiable(images);
   }
 }

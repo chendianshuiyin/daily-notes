@@ -15,6 +15,14 @@ void main() {
       createdAt: DateTime.utc(2026, 7, 9, 8),
       updatedAt: DateTime.utc(2026, 7, 10, 9),
       isArchived: true,
+      images: [
+        NoteImage(
+          id: 'image-1',
+          name: 'photo.jpg',
+          mimeType: 'image/jpeg',
+          base64Data: base64Encode([1, 2, 3]),
+        ),
+      ],
     );
     final exportedAt = DateTime.utc(2026, 7, 10, 10);
 
@@ -29,6 +37,7 @@ void main() {
     expect(backup.notes.single.createdAt, note.createdAt);
     expect(backup.notes.single.updatedAt, note.updatedAt);
     expect(backup.notes.single.isArchived, isTrue);
+    expect(backup.notes.single.images.single.name, 'photo.jpg');
   });
 
   test('rejects unsupported backup formats', () {

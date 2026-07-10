@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../../core/utils/utils.dart';
+import '../../../core/widgets/widgets.dart';
 import '../../../data/models/models.dart';
 import '../../providers/providers.dart';
 import '../../routers/app_router.dart';
@@ -174,6 +175,9 @@ class _NoteCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: ListTile(
+        leading: note.images.isEmpty
+            ? null
+            : NoteThumbnail(image: note.images.first),
         title: Text(
           note.displayTitle,
           maxLines: 1,
