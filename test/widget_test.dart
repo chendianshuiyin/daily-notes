@@ -89,6 +89,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byTooltip('添加图片'), findsOneWidget);
+    expect(find.byKey(const ValueKey('voiceInputButton')), findsOneWidget);
+    expect(find.byTooltip('开始语音输入'), findsOneWidget);
 
     await tester.enterText(
       find.byKey(const ValueKey('noteTitleField')),
@@ -189,6 +191,13 @@ void main() {
     expect(find.text('已归档 1'), findsOneWidget);
     expect(find.byKey(const ValueKey('historyTag-#工作')), findsOneWidget);
     expect(find.byKey(const ValueKey('historyTag-#生活')), findsOneWidget);
+    final workTagChip = tester.widget<ChoiceChip>(
+      find.byKey(const ValueKey('historyTag-#工作')),
+    );
+    final colorScheme = Theme.of(
+      tester.element(find.byKey(const ValueKey('historyTag-#工作'))),
+    ).colorScheme;
+    expect(workTagChip.labelStyle?.color, colorScheme.onSurface);
 
     await tester.tap(find.byKey(const ValueKey('historyTag-#工作')));
     await tester.pumpAndSettle();

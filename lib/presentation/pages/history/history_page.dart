@@ -299,6 +299,34 @@ class _TagArchiveBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    ChoiceChip tagChip({
+      required Key key,
+      required String label,
+      required bool selected,
+      required VoidCallback onSelected,
+    }) {
+      final foreground = selected
+          ? colorScheme.onPrimaryContainer
+          : colorScheme.onSurface;
+      return ChoiceChip(
+        key: key,
+        label: Text(label),
+        labelStyle: Theme.of(
+          context,
+        ).textTheme.labelLarge?.copyWith(color: foreground),
+        selected: selected,
+        onSelected: (_) => onSelected(),
+        backgroundColor: colorScheme.surface,
+        selectedColor: colorScheme.primaryContainer,
+        side: BorderSide(
+          color: selected ? colorScheme.primary : colorScheme.outlineVariant,
+        ),
+        checkmarkColor: foreground,
+      );
+    }
+
     return SizedBox(
       height: 42,
       child: ListView(
@@ -311,19 +339,19 @@ class _TagArchiveBar extends StatelessWidget {
             color: Theme.of(context).colorScheme.primary,
           ),
           const SizedBox(width: 8),
-          ChoiceChip(
+          tagChip(
             key: const ValueKey('historyTag-all'),
-            label: const Text('全部标签'),
+            label: '全部标签',
             selected: selectedTag == null,
-            onSelected: (_) => onSelected(null),
+            onSelected: () => onSelected(null),
           ),
           for (final tag in tags) ...[
             const SizedBox(width: 8),
-            ChoiceChip(
+            tagChip(
               key: ValueKey('historyTag-$tag'),
-              label: Text('$tag ${counts[tag]}'),
+              label: '$tag ${counts[tag]}',
               selected: selectedTag == tag,
-              onSelected: (_) => onSelected(tag),
+              onSelected: () => onSelected(tag),
             ),
           ],
           if (tags.isEmpty) ...[

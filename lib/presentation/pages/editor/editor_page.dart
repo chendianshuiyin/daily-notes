@@ -1,6 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:speech_to_text/speech_recognition_error.dart';
+import 'package:speech_to_text/speech_recognition_result.dart';
+import 'package:speech_to_text/speech_to_text.dart';
 import '../../../data/models/models.dart';
 import '../../../data/services/services.dart';
 import '../../providers/providers.dart';
@@ -24,6 +28,7 @@ class _EditorPageState extends State<EditorPage> {
   final TextEditingController _contentController = TextEditingController();
   final TextEditingController _tagController = TextEditingController();
   final NoteImageService _imageService = const NoteImageService();
+  final SpeechToText _speech = SpeechToText();
 
   bool _isLoading = false;
   bool _isSaving = false;
@@ -31,6 +36,8 @@ class _EditorPageState extends State<EditorPage> {
   bool _isDirty = false;
   bool _allowPop = false;
   bool _isPickingImages = false;
+  bool _isStartingVoice = false;
+  bool _isListening = false;
   Note? _currentNote;
   List<NoteImage> _images = [];
   List<String> _tags = [];
@@ -38,8 +45,15 @@ class _EditorPageState extends State<EditorPage> {
   String _initialContent = '';
   String _initialImageIds = '';
   String _initialTags = '';
+  String _voiceBaseContent = '';
 
   bool get _isNewNote => widget.noteId == null;
+
+  bool get _voiceInputSupported {
+    return kIsWeb ||
+        defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.windows;
+  }
 
   @override
   void didChangeDependencies() {
@@ -52,6 +66,7 @@ class _EditorPageState extends State<EditorPage> {
 
   @override
   void dispose() {
+    _speech.cancel();
     _titleController.dispose();
     _contentController.dispose();
     _tagController.dispose();
@@ -335,6 +350,99 @@ class _EditorPageState extends State<EditorPage> {
       text: updatedText,
       selection: TextSelection.collapsed(offset: offset + insertion.length),
       composing: TextRange.empty,
+    );
+    _updateDirtyState();
+  }
+
+  Future<void> _toggleVoiceInput() async {
+    if (!_voiceInputSupported) {
+      return;
+    }
+    if (_isListening) {
+      await _speech.stop();
+      if (mounted) {
+        setState(() => _isListening = false);
+      }
+      return;
+    }
+
+    setState(() => _isStartingVoice = true);
+    try {
+      final available = await _speech.initialize(
+        onStatus: _handleSpeechStatus,
+        onError: _handleSpeechError,
+      );
+      if (!mounted) {
+        return;
+      }
+      if (!available) {
+        _showError('语音输入不可用，请检查麦克风权限和系统语音服务');
+        return;
+      }
+
+      _voiceBaseContent = _contentController.text;
+      await _speech.listen(
+        onResult: _handleSpeechResult,
+        listenOptions: SpeechListenOptions(
+          listenMode: ListenMode.dictation,
+          partialResults: true,
+          cancelOnError: true,
+          listenFor: const Duration(minutes: 1),
+          pauseFor: const Duration(seconds: 4),
+        ),
+      );
+      if (mounted) {
+        setState(() => _isListening = _speech.isListening);
+      }
+    } catch (error, stackTrace) {
+      debugPrint('Failed to start speech recognition: $error\n$stackTrace');
+      if (mounted) {
+        _showError('无法启动语音输入，请稍后重试');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isStartingVoice = false);
+      }
+    }
+  }
+
+  void _handleSpeechStatus(String status) {
+    if (!mounted) {
+      return;
+    }
+    final listening = status == SpeechToText.listeningStatus;
+    if (_isListening != listening) {
+      setState(() => _isListening = listening);
+    }
+  }
+
+  void _handleSpeechError(SpeechRecognitionError error) {
+    if (!mounted) {
+      return;
+    }
+    setState(() => _isListening = false);
+    final message = error.errorMsg.contains('permission')
+        ? '麦克风或语音识别权限未授权'
+        : error.errorMsg.contains('network')
+        ? '语音识别网络不可用'
+        : '没有识别到语音，请重试';
+    _showError(message);
+  }
+
+  void _handleSpeechResult(SpeechRecognitionResult result) {
+    final words = result.recognizedWords.trim();
+    if (!mounted || words.isEmpty) {
+      return;
+    }
+    final separator = _voiceBaseContent.isEmpty
+        ? ''
+        : RegExp(r'\s$').hasMatch(_voiceBaseContent)
+        ? ''
+        : '\n';
+    final text = '$_voiceBaseContent$separator$words';
+    _contentController.value = TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
     );
     _updateDirtyState();
   }
@@ -652,9 +760,37 @@ class _EditorPageState extends State<EditorPage> {
                             icon: const Icon(Icons.schedule_outlined),
                             tooltip: '插入当前时间',
                           ),
+                          IconButton(
+                            key: const ValueKey('voiceInputButton'),
+                            onPressed: !_voiceInputSupported || _isStartingVoice
+                                ? null
+                                : _toggleVoiceInput,
+                            icon: _isStartingVoice
+                                ? const SizedBox.square(
+                                    dimension: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : Icon(
+                                    _isListening
+                                        ? Icons.stop_circle_outlined
+                                        : Icons.mic_none_outlined,
+                                    color: _isListening
+                                        ? Theme.of(context).colorScheme.error
+                                        : null,
+                                  ),
+                            tooltip: !_voiceInputSupported
+                                ? '当前平台不支持语音输入'
+                                : _isListening
+                                ? '停止语音输入'
+                                : '开始语音输入',
+                          ),
                           const Spacer(),
                           Text(
-                            '${_contentController.text.trim().length} 字',
+                            _isListening
+                                ? '听写中'
+                                : '${_contentController.text.trim().length} 字',
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
                           const SizedBox(width: 10),
