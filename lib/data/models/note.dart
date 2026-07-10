@@ -35,6 +35,13 @@ class Note {
   bool get hasBody =>
       title.trim().isNotEmpty || content.trim().isNotEmpty || images.isNotEmpty;
 
+  List<String> get tags {
+    final matches = RegExp(
+      r'#[^\s#，。,.!?！？；;：:]+',
+    ).allMatches('$title $content');
+    return matches.map((match) => match.group(0)!).toSet().toList();
+  }
+
   Note copyWith({
     String? id,
     String? title,

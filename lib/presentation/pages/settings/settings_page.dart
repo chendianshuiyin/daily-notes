@@ -95,49 +95,110 @@ class SettingsPage extends StatelessWidget {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
+          tooltip: '返回',
         ),
       ),
       body: Consumer<AppSettingsProvider>(
         builder: (context, settings, child) {
-          return ListView(
-            children: [
-              _SettingsSection(
-                title: '外观',
-                children: [_ThemeModeItem(settings: settings)],
-              ),
-              const Divider(),
-              _SettingsSection(
-                title: '数据',
+          final noteCount = context.watch<NoteProvider>().notes.length;
+          return Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 760),
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 20, 16, 64),
                 children: [
-                  _SettingsItem(
-                    icon: Icons.copy_all_outlined,
-                    title: '复制笔记备份',
-                    subtitle: '将全部笔记复制为 JSON',
-                    onTap: () => _copyBackup(context),
+                  _SettingsIntro(noteCount: noteCount),
+                  const SizedBox(height: 20),
+                  _SettingsSection(
+                    title: '外观',
+                    children: [_ThemeModeItem(settings: settings)],
                   ),
-                  _SettingsItem(
-                    icon: Icons.settings_backup_restore_outlined,
-                    title: '从剪贴板恢复',
-                    subtitle: '合并备份，同 ID 内容将覆盖',
-                    onTap: () => _restoreBackup(context),
+                  const SizedBox(height: 20),
+                  _SettingsSection(
+                    title: '数据管理',
+                    children: [
+                      _SettingsItem(
+                        icon: Icons.copy_all_outlined,
+                        title: '复制笔记备份',
+                        subtitle: '将全部图文笔记复制为 JSON',
+                        onTap: () => _copyBackup(context),
+                      ),
+                      _SettingsItem(
+                        icon: Icons.settings_backup_restore_outlined,
+                        title: '从剪贴板恢复',
+                        subtitle: '合并备份，同 ID 内容将覆盖',
+                        onTap: () => _restoreBackup(context),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  const _SettingsSection(
+                    title: '关于',
+                    children: [
+                      _SettingsItem(
+                        icon: Icons.info_outlined,
+                        title: '版本',
+                        subtitle: '1.0.2',
+                        showChevron: false,
+                      ),
+                    ],
                   ),
                 ],
               ),
-              const Divider(),
-              const _SettingsSection(
-                title: '关于',
-                children: [
-                  _SettingsItem(
-                    icon: Icons.info_outlined,
-                    title: '版本',
-                    subtitle: '1.0.2',
-                    showChevron: false,
-                  ),
-                ],
-              ),
-            ],
+            ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _SettingsIntro extends StatelessWidget {
+  const _SettingsIntro({required this.noteCount});
+
+  final int noteCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: Theme.of(
+                context,
+              ).colorScheme.secondary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              Icons.lock_outline,
+              color: Theme.of(context).colorScheme.secondary,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('本地优先', style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 2),
+                Text(
+                  '$noteCount 条笔记保存在此设备，可随时导出备份。',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -156,7 +217,7 @@ class _SettingsSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          padding: const EdgeInsets.only(bottom: 8),
           child: Text(
             title,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
@@ -164,7 +225,23 @@ class _SettingsSection extends StatelessWidget {
             ),
           ),
         ),
-        ...children,
+        Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: Theme.of(context).colorScheme.outlineVariant,
+            ),
+          ),
+          child: Column(
+            children: [
+              for (var index = 0; index < children.length; index++) ...[
+                children[index],
+                if (index != children.length - 1) const Divider(),
+              ],
+            ],
+          ),
+        ),
       ],
     );
   }

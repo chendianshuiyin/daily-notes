@@ -88,7 +88,7 @@ void main() {
       find.byKey(const ValueKey('noteContentField')),
       '这是一条可以保存并显示在首页的笔记。',
     );
-    await tester.tap(find.byTooltip('保存'));
+    await tester.tap(find.byKey(const ValueKey('saveNoteButton')));
     await tester.pumpAndSettle();
 
     expect(find.text('可用性测试笔记'), findsWidgets);
@@ -126,13 +126,64 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('noteImage-image-1')), findsOneWidget);
 
-    await tester.tap(find.byTooltip('移除图片'));
+    final removeImageButton = find.byKey(
+      const ValueKey('removeNoteImage-image-1'),
+    );
+    await tester.ensureVisible(removeImageButton);
+    await tester.tap(removeImageButton);
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('noteImage-image-1')), findsNothing);
 
     await tester.tap(find.byIcon(Icons.arrow_back));
     await tester.pumpAndSettle();
     expect(find.text('放弃未保存的更改？'), findsOneWidget);
+  });
+
+  testWidgets('Searches and filters active and archived notes', (
+    WidgetTester tester,
+  ) async {
+    final date = DateTime.now();
+    await testRepository.upsertNote(
+      Note(
+        id: 'active-note',
+        title: '当前项目',
+        content: '#工作 正在推进',
+        createdAt: date,
+        updatedAt: date,
+      ),
+    );
+    await testRepository.upsertNote(
+      Note(
+        id: 'archived-note',
+        title: '归档生活记录',
+        content: '#生活 已完成',
+        createdAt: date.subtract(const Duration(days: 1)),
+        updatedAt: date,
+        isArchived: true,
+      ),
+    );
+
+    await tester.pumpWidget(testApp);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('历史记录'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('historySearchField')), findsOneWidget);
+    expect(find.text('全部 2'), findsOneWidget);
+    expect(find.text('当前 1'), findsOneWidget);
+    expect(find.text('已归档 1'), findsOneWidget);
+
+    await tester.tap(find.text('已归档 1'));
+    await tester.pumpAndSettle();
+    expect(find.text('归档生活记录'), findsOneWidget);
+    expect(find.text('当前项目'), findsNothing);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('historySearchField')),
+      '#工作',
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('没有匹配的笔记'), findsOneWidget);
   });
 
   testWidgets('Persists theme mode from settings', (WidgetTester tester) async {
@@ -179,7 +230,7 @@ void main() {
       find.byKey(const ValueKey('noteContentField')),
       '备份正文',
     );
-    await tester.tap(find.byTooltip('保存'));
+    await tester.tap(find.byKey(const ValueKey('saveNoteButton')));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byTooltip('设置'));
@@ -266,7 +317,7 @@ void main() {
       find.byKey(const ValueKey('noteTitleField')),
       '不要丢失这条草稿',
     );
-    await tester.tap(find.byTooltip('保存'));
+    await tester.tap(find.byKey(const ValueKey('saveNoteButton')));
     await tester.pumpAndSettle();
 
     expect(find.textContaining('保存失败，请重试'), findsOneWidget);

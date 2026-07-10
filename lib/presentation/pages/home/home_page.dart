@@ -22,7 +22,13 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Daily Notes'),
+        title: const Row(
+          children: [
+            Icon(Icons.auto_stories_outlined, size: 22),
+            SizedBox(width: 10),
+            Text('Daily Notes'),
+          ],
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.history),
@@ -53,42 +59,60 @@ class _HomePageState extends State<HomePage> {
           final recentNotes = noteProvider.activeNotes.take(5).toList();
           final selectedNotes = noteProvider.notesForDay(_selectedDate);
 
-          return RefreshIndicator(
-            onRefresh: noteProvider.loadNotes,
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                _SummaryRow(
-                  todayCount: todayNotes.length,
-                  totalCount: noteProvider.activeNotes.length,
-                  streakCount: noteProvider.currentStreak,
+          return Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 980),
+              child: RefreshIndicator(
+                onRefresh: noteProvider.loadNotes,
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 96),
+                  children: [
+                    const _DashboardHeader(),
+                    const SizedBox(height: 16),
+                    _SummaryRow(
+                      todayCount: todayNotes.length,
+                      totalCount: noteProvider.activeNotes.length,
+                      streakCount: noteProvider.currentStreak,
+                    ),
+                    const SizedBox(height: 16),
+                    NoteActivityHeatmap(
+                      activityByDay: noteProvider.activityByDay,
+                      selectedDate: _selectedDate,
+                      onDateSelected: (date) {
+                        setState(() => _selectedDate = _dateOnly(date));
+                      },
+                    ),
+                    const SizedBox(height: 24),
+                    _SectionHeader(
+                      title: '每日详情 · ${_formatDay(_selectedDate)}',
+                      count: selectedNotes.length,
+                    ),
+                    const SizedBox(height: 10),
+                    if (selectedNotes.isEmpty)
+                      const _DayEmptyState()
+                    else
+                      ...selectedNotes.map(
+                        (note) => Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: _NoteCard(note: note),
+                        ),
+                      ),
+                    const SizedBox(height: 16),
+                    _SectionHeader(title: '最近更新', count: recentNotes.length),
+                    const SizedBox(height: 10),
+                    if (recentNotes.isEmpty)
+                      const _InlineEmptyState()
+                    else
+                      ...recentNotes.map(
+                        (note) => Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: _NoteCard(note: note),
+                        ),
+                      ),
+                  ],
                 ),
-                const SizedBox(height: 24),
-                NoteActivityHeatmap(
-                  activityByDay: noteProvider.activityByDay,
-                  selectedDate: _selectedDate,
-                  onDateSelected: (date) {
-                    setState(() => _selectedDate = _dateOnly(date));
-                  },
-                ),
-                const SizedBox(height: 24),
-                _SectionHeader(
-                  title: '每日详情 · ${_formatDay(_selectedDate)}',
-                  count: selectedNotes.length,
-                ),
-                const SizedBox(height: 8),
-                if (selectedNotes.isEmpty)
-                  const _DayEmptyState()
-                else
-                  ...selectedNotes.map((note) => _NoteCard(note: note)),
-                const SizedBox(height: 24),
-                _SectionHeader(title: '最近更新', count: recentNotes.length),
-                const SizedBox(height: 8),
-                if (recentNotes.isEmpty)
-                  const Text('还没有笔记，点击右下角开始记录。')
-                else
-                  ...recentNotes.map((note) => _NoteCard(note: note)),
-              ],
+              ),
             ),
           );
         },
@@ -107,6 +131,54 @@ class _HomePageState extends State<HomePage> {
 
   static String _formatDay(DateTime value) {
     return '${value.month}月${value.day}日';
+  }
+}
+
+class _DashboardHeader extends StatelessWidget {
+  const _DashboardHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('统计总览', style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 3),
+              Text(
+                '${now.year}年${now.month}月${now.day}日',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: Theme.of(
+              context,
+            ).colorScheme.secondary.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.shield_outlined,
+                size: 15,
+                color: Theme.of(context).colorScheme.secondary,
+              ),
+              const SizedBox(width: 5),
+              const Text('本地保存'),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -175,21 +247,28 @@ class _SummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(height: 8),
-            Text(value, style: Theme.of(context).textTheme.headlineSmall),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
+      child: SizedBox(
+        height: 112,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                icon,
+                size: 20,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              const Spacer(),
+              Text(value, style: Theme.of(context).textTheme.headlineSmall),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -225,9 +304,23 @@ class _NoteCard extends StatelessWidget {
       child: ListTile(
         leading: note.images.isNotEmpty
             ? NoteThumbnail(image: note.images.first)
-            : note.isArchived
-            ? const Icon(Icons.archive_outlined)
-            : null,
+            : Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                alignment: Alignment.center,
+                child: Icon(
+                  note.isArchived
+                      ? Icons.archive_outlined
+                      : Icons.description_outlined,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
         title: Text(
           note.displayTitle,
           maxLines: 1,
@@ -256,14 +349,43 @@ class _DayEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 24),
-      child: Column(
-        children: [
-          Icon(Icons.note_alt_outlined, size: 64, color: Colors.grey),
-          SizedBox(height: 12),
-          Text('这一天还没有记录'),
-        ],
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 28),
+        child: Column(
+          children: [
+            Icon(
+              Icons.note_alt_outlined,
+              size: 42,
+              color: Theme.of(context).colorScheme.outline,
+            ),
+            const SizedBox(height: 10),
+            const Text('这一天还没有记录'),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InlineEmptyState extends StatelessWidget {
+  const _InlineEmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Row(
+          children: [
+            Icon(
+              Icons.edit_note_outlined,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(width: 10),
+            const Expanded(child: Text('还没有笔记，点击右下角开始记录。')),
+          ],
+        ),
       ),
     );
   }

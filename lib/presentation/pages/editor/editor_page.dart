@@ -273,6 +273,26 @@ class _EditorPageState extends State<EditorPage> {
     }
   }
 
+  void _insertCurrentTime() {
+    final now = DateTime.now();
+    final timestamp =
+        '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+    final value = _contentController.value;
+    final selection = value.selection;
+    final offset = selection.isValid ? selection.start : value.text.length;
+    final prefix = offset > 0 && !value.text.substring(0, offset).endsWith('\n')
+        ? '\n'
+        : '';
+    final insertion = '$prefix$timestamp ';
+    final updatedText = value.text.replaceRange(offset, offset, insertion);
+    _contentController.value = value.copyWith(
+      text: updatedText,
+      selection: TextSelection.collapsed(offset: offset + insertion.length),
+      composing: TextRange.empty,
+    );
+    _updateDirtyState();
+  }
+
   void _removeImage(NoteImage image) {
     setState(() {
       _images = _images.where((item) => item.id != image.id).toList();
@@ -381,20 +401,11 @@ class _EditorPageState extends State<EditorPage> {
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
             onPressed: _requestLeaveEditor,
+            tooltip: '返回',
           ),
           actions: [
-            IconButton(
-              icon: _isSaving
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.check),
-              onPressed: _isSaving ? null : _saveNote,
-              tooltip: '保存',
-            ),
             PopupMenuButton<String>(
+              tooltip: '更多操作',
               onSelected: (value) {
                 if (value == 'archive') {
                   _archiveNote();
@@ -417,54 +428,127 @@ class _EditorPageState extends State<EditorPage> {
         ),
         body: _isLoading
             ? const Center(child: CircularProgressIndicator())
-            : SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      TextField(
-                        key: const ValueKey('noteTitleField'),
-                        controller: _titleController,
-                        onChanged: _handleDraftChanged,
-                        textInputAction: TextInputAction.next,
-                        style: Theme.of(context).textTheme.headlineSmall,
-                        decoration: const InputDecoration(
-                          hintText: '标题',
-                          border: InputBorder.none,
-                          enabledBorder: InputBorder.none,
-                          focusedBorder: InputBorder.none,
-                          filled: false,
-                        ),
-                      ),
-                      const Divider(),
-                      Expanded(
-                        child: TextField(
-                          key: const ValueKey('noteContentField'),
-                          controller: _contentController,
-                          onChanged: _handleDraftChanged,
-                          keyboardType: TextInputType.multiline,
-                          textInputAction: TextInputAction.newline,
-                          maxLines: null,
-                          expands: true,
-                          textAlignVertical: TextAlignVertical.top,
-                          decoration: const InputDecoration(
-                            hintText: '写下今天的想法...',
-                            border: InputBorder.none,
-                            enabledBorder: InputBorder.none,
-                            focusedBorder: InputBorder.none,
-                            filled: false,
+            : LayoutBuilder(
+                builder: (context, constraints) => Align(
+                  alignment: Alignment.topCenter,
+                  child: SizedBox(
+                    width: constraints.maxWidth > 900
+                        ? 900
+                        : constraints.maxWidth,
+                    height: constraints.maxHeight,
+                    child: SafeArea(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerLow,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.outlineVariant,
+                            ),
+                          ),
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.calendar_today_outlined,
+                                    size: 16,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    _editorDateLabel(),
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.labelMedium,
+                                  ),
+                                  const Spacer(),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color:
+                                          (_isDirty
+                                                  ? Theme.of(
+                                                      context,
+                                                    ).colorScheme.tertiary
+                                                  : Theme.of(
+                                                      context,
+                                                    ).colorScheme.secondary)
+                                              .withValues(alpha: 0.12),
+                                      borderRadius: BorderRadius.circular(5),
+                                    ),
+                                    child: Text(_isDirty ? '未保存' : '已保存'),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              const Divider(),
+                              TextField(
+                                key: const ValueKey('noteTitleField'),
+                                controller: _titleController,
+                                onChanged: _handleDraftChanged,
+                                textInputAction: TextInputAction.next,
+                                style: Theme.of(
+                                  context,
+                                ).textTheme.headlineSmall,
+                                decoration: const InputDecoration(
+                                  hintText: '标题',
+                                  border: InputBorder.none,
+                                  enabledBorder: InputBorder.none,
+                                  focusedBorder: InputBorder.none,
+                                  filled: false,
+                                  contentPadding: EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
+                                ),
+                              ),
+                              const Divider(),
+                              Expanded(
+                                child: TextField(
+                                  key: const ValueKey('noteContentField'),
+                                  controller: _contentController,
+                                  onChanged: _handleDraftChanged,
+                                  keyboardType: TextInputType.multiline,
+                                  textInputAction: TextInputAction.newline,
+                                  maxLines: null,
+                                  expands: true,
+                                  textAlignVertical: TextAlignVertical.top,
+                                  decoration: const InputDecoration(
+                                    hintText: '记录今天发生了什么，写下想法或待办...',
+                                    border: InputBorder.none,
+                                    enabledBorder: InputBorder.none,
+                                    focusedBorder: InputBorder.none,
+                                    filled: false,
+                                    contentPadding: EdgeInsets.symmetric(
+                                      vertical: 12,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              if (_images.isNotEmpty) ...[
+                                const SizedBox(height: 12),
+                                _AttachmentStrip(
+                                  images: _images,
+                                  onPreview: _showImagePreview,
+                                  onRemove: _removeImage,
+                                ),
+                              ],
+                            ],
                           ),
                         ),
                       ),
-                      if (_images.isNotEmpty) ...[
-                        const SizedBox(height: 12),
-                        _AttachmentStrip(
-                          images: _images,
-                          onPreview: _showImagePreview,
-                          onRemove: _removeImage,
-                        ),
-                      ],
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -472,48 +556,80 @@ class _EditorPageState extends State<EditorPage> {
             ? null
             : SafeArea(
                 top: false,
-                child: Container(
-                  height: 56,
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surface,
-                    border: Border(
-                      top: BorderSide(
-                        color: Theme.of(context).colorScheme.outlineVariant,
+                child: Align(
+                  alignment: Alignment.center,
+                  heightFactor: 1,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 900),
+                    child: Container(
+                      height: 64,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surface,
+                        border: Border(
+                          top: BorderSide(
+                            color: Theme.of(context).colorScheme.outlineVariant,
+                          ),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          IconButton(
+                            key: const ValueKey('addNoteImageButton'),
+                            onPressed: _isPickingImages ? null : _pickImages,
+                            icon: _isPickingImages
+                                ? const SizedBox.square(
+                                    dimension: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons.add_photo_alternate_outlined,
+                                  ),
+                            tooltip: '添加图片',
+                          ),
+                          Text(
+                            '${_images.length}/${NoteImageService.maxImagesPerNote}',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                          IconButton(
+                            onPressed: _insertCurrentTime,
+                            icon: const Icon(Icons.schedule_outlined),
+                            tooltip: '插入当前时间',
+                          ),
+                          const Spacer(),
+                          Text(
+                            '${_contentController.text.trim().length} 字',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                          const SizedBox(width: 10),
+                          FilledButton.icon(
+                            key: const ValueKey('saveNoteButton'),
+                            onPressed: _isSaving ? null : _saveNote,
+                            icon: _isSaving
+                                ? const SizedBox.square(
+                                    dimension: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.save_outlined, size: 18),
+                            label: const Text('保存'),
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                  child: Row(
-                    children: [
-                      IconButton(
-                        key: const ValueKey('addNoteImageButton'),
-                        onPressed: _isPickingImages ? null : _pickImages,
-                        icon: _isPickingImages
-                            ? const SizedBox.square(
-                                dimension: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Icon(Icons.add_photo_alternate_outlined),
-                        tooltip: '添加图片',
-                      ),
-                      Text(
-                        '${_images.length}/${NoteImageService.maxImagesPerNote}',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                      const Spacer(),
-                      Text(
-                        '${_contentController.text.trim().length} 字',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                      const SizedBox(width: 8),
-                    ],
                   ),
                 ),
               ),
       ),
     );
+  }
+
+  String _editorDateLabel() {
+    final date = _currentNote?.createdAt ?? DateTime.now();
+    return '${date.year}年${date.month}月${date.day}日';
   }
 }
 
@@ -565,6 +681,7 @@ class _AttachmentStrip extends StatelessWidget {
                 top: 4,
                 right: 4,
                 child: IconButton.filled(
+                  key: ValueKey('removeNoteImage-${image.id}'),
                   constraints: const BoxConstraints.tightFor(
                     width: 32,
                     height: 32,

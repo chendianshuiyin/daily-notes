@@ -1,334 +1,231 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+
 import '../constants/app_colors.dart';
 
-/// 应用主题配置
-///
-/// 提供亮色和暗色主题配置
 class AppTheme {
   AppTheme._();
 
-  /// 亮色主题
-  static ThemeData get lightTheme {
+  static ThemeData get lightTheme => _buildTheme(Brightness.light);
+
+  static ThemeData get darkTheme => _buildTheme(Brightness.dark);
+
+  static ThemeData _buildTheme(Brightness brightness) {
+    final isDark = brightness == Brightness.dark;
+    final surface = isDark ? AppColors.darkSurface : AppColors.lightSurface;
+    final card = isDark ? AppColors.darkCard : AppColors.lightCard;
+    final border = isDark ? AppColors.darkBorder : AppColors.lightBorder;
+    final text = isDark
+        ? AppColors.darkTextPrimary
+        : AppColors.lightTextPrimary;
+    final muted = isDark
+        ? AppColors.darkTextSecondary
+        : AppColors.lightTextSecondary;
+    final scheme =
+        ColorScheme.fromSeed(
+          seedColor: AppColors.primary,
+          brightness: brightness,
+        ).copyWith(
+          primary: AppColors.primary,
+          onPrimary: Colors.white,
+          secondary: AppColors.success,
+          tertiary: AppColors.warning,
+          surface: surface,
+          onSurface: text,
+          outline: border,
+          outlineVariant: border.withValues(alpha: isDark ? 0.8 : 0.75),
+          surfaceContainerLowest: isDark
+              ? const Color(0xFF0B0F14)
+              : Colors.white,
+          surfaceContainerLow: card,
+          surfaceContainer: isDark
+              ? const Color(0xFF21262D)
+              : const Color(0xFFF7F9FC),
+          surfaceContainerHigh: isDark
+              ? const Color(0xFF272C33)
+              : const Color(0xFFEEF1F5),
+          surfaceContainerHighest: isDark
+              ? const Color(0xFF30363D)
+              : const Color(0xFFE4E9F0),
+          error: AppColors.error,
+          onError: Colors.white,
+        );
+
     return ThemeData(
       useMaterial3: true,
-      brightness: Brightness.light,
-      primaryColor: AppColors.primary,
-      scaffoldBackgroundColor: AppColors.lightBackground,
-      colorScheme: const ColorScheme.light(
-        primary: AppColors.primary,
-        onPrimary: Colors.white,
-        secondary: AppColors.primaryLight,
-        onSecondary: Colors.white,
-        surface: AppColors.lightSurface,
-        onSurface: AppColors.lightTextPrimary,
-        error: AppColors.error,
-        onError: Colors.white,
-      ),
-
-      // AppBar 主题
+      brightness: brightness,
+      colorScheme: scheme,
+      scaffoldBackgroundColor: isDark
+          ? AppColors.darkBackground
+          : AppColors.lightBackground,
+      textTheme: _buildTextTheme(brightness),
       appBarTheme: AppBarTheme(
         elevation: 0,
-        centerTitle: true,
-        backgroundColor: AppColors.lightSurface,
-        foregroundColor: AppColors.lightTextPrimary,
-        titleTextStyle: GoogleFonts.manrope(
+        scrolledUnderElevation: 0,
+        centerTitle: false,
+        backgroundColor: surface,
+        foregroundColor: text,
+        surfaceTintColor: Colors.transparent,
+        titleTextStyle: TextStyle(
           fontSize: 18,
-          fontWeight: FontWeight.w600,
-          color: AppColors.lightTextPrimary,
+          fontWeight: FontWeight.w700,
+          color: text,
+        ),
+        shape: Border(bottom: BorderSide(color: border)),
+      ),
+      cardTheme: CardThemeData(
+        elevation: 0,
+        margin: EdgeInsets.zero,
+        color: card,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: BorderSide(color: border),
         ),
       ),
-
-      // Card 主题
-      cardTheme: CardThemeData(
-        elevation: 2,
-        shadowColor: Colors.black.withValues(alpha: 0.08),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        color: AppColors.lightCard,
-      ),
-
-      // 输入框主题
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.lightSurface,
+        fillColor: card,
         contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
+          horizontal: 14,
           vertical: 12,
         ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.lightBorder),
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: border),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.lightBorder),
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: border),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: AppColors.primary, width: 2),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: AppColors.error),
         ),
-        hintStyle: GoogleFonts.notoSansSc(color: AppColors.lightTextSecondary),
+        hintStyle: TextStyle(color: muted),
       ),
-
-      // 按钮主题
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          textStyle: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+      ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
+          elevation: 0,
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
-          elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          textStyle: GoogleFonts.manrope(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       ),
-
-      // 文本按钮主题
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: AppColors.primary,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          textStyle: GoogleFonts.manrope(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       ),
-
-      // FloatingActionButton 主题
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      ),
+      chipTheme: ChipThemeData(
+        side: BorderSide(color: border),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+        labelStyle: const TextStyle(fontSize: 12),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: card,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+      snackBarTheme: SnackBarThemeData(behavior: SnackBarBehavior.fixed),
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
-        elevation: 4,
-      ),
-
-      // 分割线主题
-      dividerTheme: const DividerThemeData(
-        color: AppColors.lightBorder,
-        thickness: 1,
-        space: 1,
-      ),
-
-      // 文本主题
-      textTheme: _buildTextTheme(Brightness.light),
-    );
-  }
-
-  /// 暗色主题
-  static ThemeData get darkTheme {
-    return ThemeData(
-      useMaterial3: true,
-      brightness: Brightness.dark,
-      primaryColor: AppColors.primary,
-      scaffoldBackgroundColor: AppColors.darkBackground,
-      colorScheme: const ColorScheme.dark(
-        primary: AppColors.primary,
-        onPrimary: Colors.white,
-        secondary: AppColors.primaryLight,
-        onSecondary: Colors.white,
-        surface: AppColors.darkSurface,
-        onSurface: AppColors.darkTextPrimary,
-        error: AppColors.error,
-        onError: Colors.white,
-      ),
-
-      // AppBar 主题
-      appBarTheme: AppBarTheme(
-        elevation: 0,
-        centerTitle: true,
-        backgroundColor: AppColors.darkSurface,
-        foregroundColor: AppColors.darkTextPrimary,
-        titleTextStyle: GoogleFonts.manrope(
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
-          color: AppColors.darkTextPrimary,
-        ),
-      ),
-
-      // Card 主题
-      cardTheme: CardThemeData(
         elevation: 2,
-        shadowColor: Colors.black.withValues(alpha: 0.2),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        color: AppColors.darkCard,
-      ),
-
-      // 输入框主题
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: AppColors.darkSurface,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 12,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.darkBorder),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.darkBorder),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.primary, width: 2),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.error),
-        ),
-        hintStyle: GoogleFonts.notoSansSc(color: AppColors.darkTextSecondary),
-      ),
-
-      // 按钮主题
-      elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary,
-          foregroundColor: Colors.white,
-          elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          textStyle: GoogleFonts.manrope(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(8)),
         ),
       ),
-
-      // 文本按钮主题
-      textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(
-          foregroundColor: AppColors.primary,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          textStyle: GoogleFonts.manrope(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
+      dividerTheme: DividerThemeData(color: border, thickness: 1, space: 1),
+      listTileTheme: const ListTileThemeData(
+        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       ),
-
-      // FloatingActionButton 主题
-      floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        elevation: 4,
-      ),
-
-      // 分割线主题
-      dividerTheme: const DividerThemeData(
-        color: AppColors.darkBorder,
-        thickness: 1,
-        space: 1,
-      ),
-
-      // 文本主题
-      textTheme: _buildTextTheme(Brightness.dark),
     );
   }
 
-  /// 构建文本主题
   static TextTheme _buildTextTheme(Brightness brightness) {
-    final Color textColor = brightness == Brightness.light
+    final text = brightness == Brightness.light
         ? AppColors.lightTextPrimary
         : AppColors.darkTextPrimary;
-    final Color secondaryTextColor = brightness == Brightness.light
+    final muted = brightness == Brightness.light
         ? AppColors.lightTextSecondary
         : AppColors.darkTextSecondary;
 
     return TextTheme(
-      // Display
-      displayLarge: GoogleFonts.manrope(
-        fontSize: 57,
-        fontWeight: FontWeight.w400,
-        color: textColor,
+      headlineLarge: TextStyle(
+        fontSize: 30,
+        fontWeight: FontWeight.w700,
+        color: text,
       ),
-      displayMedium: GoogleFonts.manrope(
-        fontSize: 45,
-        fontWeight: FontWeight.w400,
-        color: textColor,
+      headlineMedium: TextStyle(
+        fontSize: 26,
+        fontWeight: FontWeight.w700,
+        color: text,
       ),
-      displaySmall: GoogleFonts.manrope(
-        fontSize: 36,
-        fontWeight: FontWeight.w400,
-        color: textColor,
-      ),
-
-      // Headline
-      headlineLarge: GoogleFonts.manrope(
-        fontSize: 32,
-        fontWeight: FontWeight.w600,
-        color: textColor,
-      ),
-      headlineMedium: GoogleFonts.manrope(
-        fontSize: 28,
-        fontWeight: FontWeight.w600,
-        color: textColor,
-      ),
-      headlineSmall: GoogleFonts.manrope(
-        fontSize: 24,
-        fontWeight: FontWeight.w600,
-        color: textColor,
-      ),
-
-      // Title
-      titleLarge: GoogleFonts.manrope(
+      headlineSmall: TextStyle(
         fontSize: 22,
-        fontWeight: FontWeight.w600,
-        color: textColor,
+        fontWeight: FontWeight.w700,
+        color: text,
       ),
-      titleMedium: GoogleFonts.manrope(
+      titleLarge: TextStyle(
+        fontSize: 20,
+        fontWeight: FontWeight.w700,
+        color: text,
+      ),
+      titleMedium: TextStyle(
         fontSize: 16,
         fontWeight: FontWeight.w600,
-        color: textColor,
+        color: text,
       ),
-      titleSmall: GoogleFonts.manrope(
+      titleSmall: TextStyle(
         fontSize: 14,
         fontWeight: FontWeight.w600,
-        color: textColor,
+        color: text,
       ),
-
-      // Label
-      labelLarge: GoogleFonts.notoSansSc(
+      labelLarge: TextStyle(
         fontSize: 14,
-        fontWeight: FontWeight.w500,
-        color: textColor,
+        fontWeight: FontWeight.w600,
+        color: text,
       ),
-      labelMedium: GoogleFonts.notoSansSc(
+      labelMedium: TextStyle(
         fontSize: 12,
         fontWeight: FontWeight.w500,
-        color: textColor,
+        color: text,
       ),
-      labelSmall: GoogleFonts.notoSansSc(
+      labelSmall: TextStyle(
         fontSize: 11,
         fontWeight: FontWeight.w500,
-        color: secondaryTextColor,
+        color: muted,
       ),
-
-      // Body
-      bodyLarge: GoogleFonts.notoSansSc(
+      bodyLarge: TextStyle(
         fontSize: 16,
         fontWeight: FontWeight.w400,
-        color: textColor,
+        color: text,
       ),
-      bodyMedium: GoogleFonts.notoSansSc(
+      bodyMedium: TextStyle(
         fontSize: 14,
         fontWeight: FontWeight.w400,
-        color: textColor,
+        color: text,
       ),
-      bodySmall: GoogleFonts.notoSansSc(
+      bodySmall: TextStyle(
         fontSize: 12,
         fontWeight: FontWeight.w400,
-        color: secondaryTextColor,
+        color: muted,
       ),
     );
   }

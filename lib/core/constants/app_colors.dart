@@ -8,15 +8,15 @@ class AppColors {
 
   // ============ Primary Colors ============
   /// 主色调 - Blue
-  static const Color primary = Color(0xFF135BEC);
+  static const Color primary = Color(0xFF2563EB);
 
   /// 主色调变体
-  static const Color primaryLight = Color(0xFF5A8BF0);
-  static const Color primaryDark = Color(0xFF0D42B8);
+  static const Color primaryLight = Color(0xFF60A5FA);
+  static const Color primaryDark = Color(0xFF1D4ED8);
 
   // ============ Light Theme Colors ============
   /// 亮色主题背景色
-  static const Color lightBackground = Color(0xFFF6F6F8);
+  static const Color lightBackground = Color(0xFFF3F5F8);
 
   /// 亮色主题表面色
   static const Color lightSurface = Color(0xFFFFFFFF);
@@ -26,17 +26,17 @@ class AppColors {
 
   // ============ Dark Theme Colors ============
   /// 暗色主题背景色
-  static const Color darkBackground = Color(0xFF101622);
+  static const Color darkBackground = Color(0xFF0D1117);
 
   /// 暗色主题表面色
-  static const Color darkSurface = Color(0xFF1D2532);
+  static const Color darkSurface = Color(0xFF161B22);
 
   /// 暗色主题卡片色
-  static const Color darkCard = Color(0xFF1D2532);
+  static const Color darkCard = Color(0xFF1C2128);
 
   // ============ Text Colors ============
   /// 亮色主题主要文字颜色
-  static const Color lightTextPrimary = Color(0xFF1A1A1A);
+  static const Color lightTextPrimary = Color(0xFF172033);
 
   /// 亮色主题次要文字颜色
   static const Color lightTextSecondary = Color(0xFF6B7280);
@@ -65,7 +65,7 @@ class AppColors {
   static const Color lightBorder = Color(0xFFE5E7EB);
 
   /// 暗色主题边框色
-  static const Color darkBorder = Color(0xFF374151);
+  static const Color darkBorder = Color(0xFF30363D);
 
   // ============ Heatmap Colors ============
   /// 热力图颜色梯度 (从浅到深)

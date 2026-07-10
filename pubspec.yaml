@@ -67,9 +67,6 @@ dependencies:
   # 热力图日历 (暂时注释，后续添加)
   # flutter_heatmap_calendar: any
 
-  # Google 字体支持
-  google_fonts: any
-
   # WebDAV 客户端 (暂时注释，后续添加)
   # webdav_client: any
 
