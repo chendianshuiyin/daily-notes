@@ -498,3 +498,21 @@
 - Web deployments require HTTPS and a WebDAV endpoint that permits the site's CORS origin.
 - Linux requires `libsecret-1-dev` to build and a Secret Service provider at runtime.
 - iOS and macOS remain outside the active release scope.
+
+## 2026-07-11 Version 1.2.0 publication
+
+### Completed
+
+- Bumped the app to `1.2.0+6`, updated repository screenshots, README, CHANGELOG, release notes, and platform scripts.
+- Built, signed, packaged, and published Android and Web assets locally.
+- Published tag and GitHub Release `v1.2.0`.
+- Added and ran a Windows x64 release workflow on the ATL-enabled `windows-2022` runner.
+- Ran the Linux x64 workflow with `libsecret-1-dev` and uploaded both desktop packages plus checksum sidecars.
+- Downloaded Windows and Linux assets and independently matched their SHA-256 values to GitHub digests and sidecars.
+
+### Verification
+
+- Release URL: `https://github.com/chendianshuiyin/daily-notes/releases/tag/v1.2.0`.
+- Windows workflow run `29118667532`: passed.
+- Linux workflow run `29118182287`: passed.
+- GitHub reports all six assets as uploaded.

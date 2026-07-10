@@ -51,9 +51,11 @@ Web 版必须部署在 HTTPS 或 localhost，并要求 WebDAV 服务端允许站
 | 资产 | SHA-256 |
 | --- | --- |
 | `daily-notes-v1.2.0-android-release.apk` | `4927D526136BA9B50C36DC9A3EFDFADBB63863EF6D8F018EA831273C3F53934A` |
+| `daily-notes-v1.2.0-windows-x64.zip` | `18BFF16E2B80C090807FC7851AFBD5025B79719913447EA613B116264E93EBE3` |
+| `daily-notes-v1.2.0-linux-x64.zip` | `AEE55F28D3126992C60D94F429C95135B59D41582BB833C05CDE15244EF6861D` |
 | `daily-notes-v1.2.0-web.zip` | `506B80358F17DC9CB5B07A7BB706E207099F1D3D61A32D025D3A69D5FB44BC38` |
 
-Windows 与 Linux 包由 GitHub Actions 从同一标签构建，并随包提供 `.sha256` 文件。发布门禁包括 `flutter analyze`、29 项 unit/widget tests、Android/Web release 构建，以及 Android 36 模拟器升级、保存、冷启动持久化和响应式界面检查。
+Windows 与 Linux 包由 GitHub Actions 从同一标签构建，并随包提供 `.sha256` 文件。发布门禁包括 `flutter analyze`、29 项 unit/widget tests、四平台 release 构建，以及 Android 36 模拟器升级、保存、冷启动持久化和响应式界面检查。
 
 ## 开发
 
@@ -78,6 +80,7 @@ pwsh -File scripts/verify_android_device.ps1 -DeviceSerial emulator-5554 -AllowE
 
 - [v1.2.0 发布说明](docs/github_release_v1.2.0.md)
 - [发布状态报告](docs/release_status_report.md)
+- [v1.2.0 最终发布报告](docs/final_release_report_v1.2.0.md)
 - [变更日志](CHANGELOG.md)
 
 ## 当前范围

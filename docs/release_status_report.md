@@ -2,7 +2,9 @@
 
 ## Current Status
 
-Daily Notes v1.2.0 is prepared for Android, Windows, Linux, and Web. The release combines the local-first text, image, heatmap, archive, backup, and voice workflows with inline multi-level tags, responsive tag navigation, random review, and optional WebDAV synchronization.
+Daily Notes v1.2.0 is published for Android, Windows, Linux, and Web. The release combines the local-first text, image, heatmap, archive, backup, and voice workflows with inline multi-level tags, responsive tag navigation, random review, and optional WebDAV synchronization.
+
+Release URL: https://github.com/chendianshuiyin/daily-notes/releases/tag/v1.2.0
 
 ## Completed Evidence
 
@@ -19,9 +21,11 @@ Daily Notes v1.2.0 is prepared for Android, Windows, Linux, and Web. The release
 | Asset | Size | SHA-256 |
 | --- | ---: | --- |
 | `daily-notes-v1.2.0-android-release.apk` | 55,715,032 bytes | `4927D526136BA9B50C36DC9A3EFDFADBB63863EF6D8F018EA831273C3F53934A` |
+| `daily-notes-v1.2.0-windows-x64.zip` | 13,726,462 bytes | `18BFF16E2B80C090807FC7851AFBD5025B79719913447EA613B116264E93EBE3` |
+| `daily-notes-v1.2.0-linux-x64.zip` | 11,299,099 bytes | `AEE55F28D3126992C60D94F429C95135B59D41582BB833C05CDE15244EF6861D` |
 | `daily-notes-v1.2.0-web.zip` | 11,092,928 bytes | `506B80358F17DC9CB5B07A7BB706E207099F1D3D61A32D025D3A69D5FB44BC38` |
 
-Windows and Linux x64 packages are produced from the release tag by GitHub Actions. Each workflow uploads its ZIP and a SHA-256 sidecar to the same GitHub Release.
+Windows run `29118667532` and Linux run `29118182287` completed successfully. Their downloaded ZIP hashes match both GitHub's asset digests and the published SHA-256 sidecars.
 
 ## Android Verification
 

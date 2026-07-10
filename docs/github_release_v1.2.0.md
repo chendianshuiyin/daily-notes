@@ -20,7 +20,18 @@ Daily Notes v1.2.0 turns tags into part of the writing flow and adds optional We
 - `flutter test`: passed, 29 tests.
 - Android and Web release builds: passed locally.
 - Android 36 emulator: upgrade installation and responsive visual checks passed.
-- Windows x64 and Linux x64 packages are built from this tag in GitHub Actions.
+- Windows x64 and Linux x64 packages passed in GitHub Actions runs `29118667532` and `29118182287`.
+
+## Release Assets
+
+- `daily-notes-v1.2.0-android-release.apk`
+  - SHA-256: `4927D526136BA9B50C36DC9A3EFDFADBB63863EF6D8F018EA831273C3F53934A`
+- `daily-notes-v1.2.0-windows-x64.zip`
+  - SHA-256: `18BFF16E2B80C090807FC7851AFBD5025B79719913447EA613B116264E93EBE3`
+- `daily-notes-v1.2.0-linux-x64.zip`
+  - SHA-256: `AEE55F28D3126992C60D94F429C95135B59D41582BB833C05CDE15244EF6861D`
+- `daily-notes-v1.2.0-web.zip`
+  - SHA-256: `506B80358F17DC9CB5B07A7BB706E207099F1D3D61A32D025D3A69D5FB44BC38`
 
 ## Platform Notes
 
