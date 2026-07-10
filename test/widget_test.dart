@@ -49,7 +49,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Daily Notes'), findsOneWidget);
-    expect(find.text('记录热力图'), findsOneWidget);
+    expect(find.text('记录热力图'), findsNothing);
+    expect(find.textContaining('最近 '), findsOneWidget);
   });
 
   testWidgets('Selects a day from the activity heatmap', (
