@@ -34,7 +34,46 @@ class NoteProvider extends ChangeNotifier {
   List<Note> get todayNotes {
     final today = DateTime.now();
     return activeNotes
-        .where((note) => DateUtil.isSameDay(note.updatedAt, today))
+        .where((note) => DateUtil.isSameDay(note.createdAt, today))
+        .toList();
+  }
+
+  Map<DateTime, int> get activityByDay {
+    final activity = <DateTime, int>{};
+    for (final note in _notes) {
+      final day = DateTime(
+        note.createdAt.year,
+        note.createdAt.month,
+        note.createdAt.day,
+      );
+      activity.update(day, (count) => count + 1, ifAbsent: () => 1);
+    }
+    return Map.unmodifiable(activity);
+  }
+
+  int get currentStreak {
+    final activeDays = activityByDay.keys.toSet();
+    if (activeDays.isEmpty) {
+      return 0;
+    }
+
+    final now = DateTime.now();
+    var cursor = DateTime(now.year, now.month, now.day);
+    if (!activeDays.contains(cursor)) {
+      cursor = cursor.subtract(const Duration(days: 1));
+    }
+
+    var streak = 0;
+    while (activeDays.contains(cursor)) {
+      streak++;
+      cursor = cursor.subtract(const Duration(days: 1));
+    }
+    return streak;
+  }
+
+  List<Note> notesForDay(DateTime day) {
+    return _notes
+        .where((note) => DateUtil.isSameDay(note.createdAt, day))
         .toList();
   }
 

@@ -7,11 +7,16 @@ import '../../../data/models/models.dart';
 import '../../providers/providers.dart';
 import '../../routers/app_router.dart';
 
-/// 首页
-///
-/// 显示今日笔记列表和热力图
-class HomePage extends StatelessWidget {
+/// Home dashboard with activity history and recent notes.
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  DateTime _selectedDate = _dateOnly(DateTime.now());
 
   @override
   Widget build(BuildContext context) {
@@ -46,6 +51,7 @@ class HomePage extends StatelessWidget {
 
           final todayNotes = noteProvider.todayNotes;
           final recentNotes = noteProvider.activeNotes.take(5).toList();
+          final selectedNotes = noteProvider.notesForDay(_selectedDate);
 
           return RefreshIndicator(
             onRefresh: noteProvider.loadNotes,
@@ -55,14 +61,26 @@ class HomePage extends StatelessWidget {
                 _SummaryRow(
                   todayCount: todayNotes.length,
                   totalCount: noteProvider.activeNotes.length,
+                  streakCount: noteProvider.currentStreak,
                 ),
                 const SizedBox(height: 24),
-                _SectionHeader(title: '今日笔记', count: todayNotes.length),
+                NoteActivityHeatmap(
+                  activityByDay: noteProvider.activityByDay,
+                  selectedDate: _selectedDate,
+                  onDateSelected: (date) {
+                    setState(() => _selectedDate = _dateOnly(date));
+                  },
+                ),
+                const SizedBox(height: 24),
+                _SectionHeader(
+                  title: '每日详情 · ${_formatDay(_selectedDate)}',
+                  count: selectedNotes.length,
+                ),
                 const SizedBox(height: 8),
-                if (todayNotes.isEmpty)
-                  const _EmptyState()
+                if (selectedNotes.isEmpty)
+                  const _DayEmptyState()
                 else
-                  ...todayNotes.map((note) => _NoteCard(note: note)),
+                  ...selectedNotes.map((note) => _NoteCard(note: note)),
                 const SizedBox(height: 24),
                 _SectionHeader(title: '最近更新', count: recentNotes.length),
                 const SizedBox(height: 8),
@@ -82,34 +100,63 @@ class HomePage extends StatelessWidget {
       ),
     );
   }
+
+  static DateTime _dateOnly(DateTime value) {
+    return DateTime(value.year, value.month, value.day);
+  }
+
+  static String _formatDay(DateTime value) {
+    return '${value.month}月${value.day}日';
+  }
 }
 
 class _SummaryRow extends StatelessWidget {
-  const _SummaryRow({required this.todayCount, required this.totalCount});
+  const _SummaryRow({
+    required this.todayCount,
+    required this.totalCount,
+    required this.streakCount,
+  });
 
   final int todayCount;
   final int totalCount;
+  final int streakCount;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _SummaryCard(
-            icon: Icons.today_outlined,
-            label: '今日',
-            value: todayCount.toString(),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _SummaryCard(
-            icon: Icons.notes_outlined,
-            label: '全部',
-            value: totalCount.toString(),
-          ),
-        ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cardWidth = (constraints.maxWidth - 16) / 3;
+        return Row(
+          children: [
+            SizedBox(
+              width: cardWidth,
+              child: _SummaryCard(
+                icon: Icons.notes_outlined,
+                label: '总记录',
+                value: totalCount.toString(),
+              ),
+            ),
+            const SizedBox(width: 8),
+            SizedBox(
+              width: cardWidth,
+              child: _SummaryCard(
+                icon: Icons.today_outlined,
+                label: '今日',
+                value: todayCount.toString(),
+              ),
+            ),
+            const SizedBox(width: 8),
+            SizedBox(
+              width: cardWidth,
+              child: _SummaryCard(
+                icon: Icons.local_fire_department_outlined,
+                label: '连续天数',
+                value: streakCount.toString(),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -130,16 +177,17 @@ class _SummaryCard extends StatelessWidget {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Icon(icon, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: Theme.of(context).textTheme.bodySmall),
-                Text(value, style: Theme.of(context).textTheme.headlineSmall),
-              ],
+            const SizedBox(height: 8),
+            Text(value, style: Theme.of(context).textTheme.headlineSmall),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
         ),
@@ -175,9 +223,11 @@ class _NoteCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: ListTile(
-        leading: note.images.isEmpty
-            ? null
-            : NoteThumbnail(image: note.images.first),
+        leading: note.images.isNotEmpty
+            ? NoteThumbnail(image: note.images.first)
+            : note.isArchived
+            ? const Icon(Icons.archive_outlined)
+            : null,
         title: Text(
           note.displayTitle,
           maxLines: 1,
@@ -201,8 +251,8 @@ class _NoteCard extends StatelessWidget {
   }
 }
 
-class _EmptyState extends StatelessWidget {
-  const _EmptyState();
+class _DayEmptyState extends StatelessWidget {
+  const _DayEmptyState();
 
   @override
   Widget build(BuildContext context) {
@@ -212,7 +262,7 @@ class _EmptyState extends StatelessWidget {
         children: [
           Icon(Icons.note_alt_outlined, size: 64, color: Colors.grey),
           SizedBox(height: 12),
-          Text('今天还没有记录'),
+          Text('这一天还没有记录'),
         ],
       ),
     );

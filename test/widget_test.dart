@@ -40,6 +40,35 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Daily Notes'), findsOneWidget);
+    expect(find.text('记录热力图'), findsOneWidget);
+  });
+
+  testWidgets('Selects a day from the activity heatmap', (
+    WidgetTester tester,
+  ) async {
+    final now = DateTime.now();
+    final day = DateTime(now.year, now.month, now.day);
+    await testRepository.upsertNote(
+      Note(
+        id: 'activity-note',
+        title: '热力图记录',
+        content: '当天详情',
+        createdAt: day,
+        updatedAt: day,
+      ),
+    );
+
+    await tester.pumpWidget(testApp);
+    await tester.pumpAndSettle();
+    final key = ValueKey(
+      'activity-cell-${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}',
+    );
+
+    expect(find.byKey(key), findsOneWidget);
+    await tester.tap(find.byKey(key));
+    await tester.pumpAndSettle();
+    expect(find.text('每日详情 · ${day.month}月${day.day}日'), findsOneWidget);
+    expect(find.text('热力图记录'), findsWidgets);
   });
 
   testWidgets('Creates and lists a note', (WidgetTester tester) async {
