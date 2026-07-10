@@ -27,8 +27,9 @@ Release URL: https://github.com/chendianshuiyin/daily-notes/releases/tag/v1.0.2
 
 GitHub reports all assets as uploaded. Downloaded Android and Linux assets were independently hashed and matched the published digests.
 
-## Remaining Hardware and Signing Work
+## Remaining Operational Work
 
 - Run the published APK on a physical Android phone when one is connected; current installation/use evidence is from an Android emulator.
-- Produce signed iOS/macOS packages on a macOS/Xcode signing host if public Apple distribution is required.
 - Back up the release keystore and `android/key.properties` securely outside Git.
+
+The current release and maintenance scope is Android, Windows, Linux, and Web. iOS and macOS are deferred.

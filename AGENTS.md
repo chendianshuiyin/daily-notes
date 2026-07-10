@@ -23,7 +23,7 @@ Use `flutter_test` for widget and unit coverage. Name tests by observable behavi
 
 ## Commit & Pull Request Guidelines
 
-Recent history uses short messages with Conventional Commit-style prefixes such as `feat:` and `docs:`. Prefer English commit messages like `feat: add note editor persistence` or `fix: handle empty history state`. Pull requests should include a concise summary, linked issue or task when available, test results, and screenshots or short recordings for UI changes. Note any platform-specific behavior, especially for Android, iOS, Windows, and Web.
+Recent history uses short messages with Conventional Commit-style prefixes such as `feat:` and `docs:`. Prefer English commit messages like `feat: add note editor persistence` or `fix: handle empty history state`. Pull requests should include a concise summary, linked issue or task when available, test results, and screenshots or short recordings for UI changes. Note any platform-specific behavior, especially for Android, Windows, Linux, and Web.
 
 ## Security & Configuration Tips
 

@@ -44,7 +44,8 @@ The release APK passed `adb install -r` over v1.0.1, preserving an existing note
 - Windows: x64 release bundle published.
 - Linux: x64 release bundle built on Ubuntu and published by GitHub Actions.
 - Web: static release bundle published for deployment to any static host.
-- iOS/macOS: identifiers, display names, and icons are prepared; signed packages require macOS and Apple signing credentials.
+
+iOS and macOS are outside the current release and maintenance scope.
 
 ## Remaining Operational Checks
 

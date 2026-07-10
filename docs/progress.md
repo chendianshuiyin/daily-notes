@@ -334,3 +334,11 @@
 - Published Android APK SHA-256: `97098D8C5476F46F2064E98A6137A25DB47FA904171CD2C6E0E61C2D4011F047`.
 - Published Linux ZIP SHA-256: `ED8660A4ABBF29E6EAC3F6974397D0F942DACEA3D5D3F87281DEEA9893AF29C5`.
 - Linux `.sha256` sidecar contains the same ZIP digest.
+
+## 2026-07-10 Platform scope update
+
+### Decision
+
+- Confirmed the active release and maintenance scope as Android, Windows, Linux, and Web.
+- Deferred iOS and macOS work; no Apple platform source or workflow changes were made.
+- Kept physical Android phone installation as the only outstanding hardware verification.

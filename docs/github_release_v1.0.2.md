@@ -44,5 +44,5 @@ Daily Notes v1.0.2 improves release polish and protects note content during comm
 
 ## Known Limits
 
-- iOS and macOS signed release builds require a macOS/Xcode signing environment.
+- The current release scope is Android, Windows, Linux, and Web; iOS and macOS are deferred.
 - Physical Android phone installation remains a recommended final hardware check; Android emulator installation and use are verified.

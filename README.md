@@ -91,6 +91,6 @@ scripts/create_github_release.ps1
 
 ## 限制与后续计划
 
-- iOS/macOS release 构建需要 macOS 签名环境。
+- 当前发布与维护范围为 Android、Windows、Linux 和 Web；iOS/macOS 暂不纳入本轮工作。
 - 真实 Android 手机 USB 安装检查仍建议在实体设备上补做。
 - 后续可将笔记存储从 `SharedPreferences` 演进到 SQLite/Isar，并补充同步与导出能力。
