@@ -458,3 +458,18 @@
 - On 2026-07-11, the project owner explicitly removed physical-phone execution from the release acceptance scope.
 - The completed Android 36 emulator install, write, save, force-stop, cold-launch, and persistence evidence is accepted as the final Android gate.
 - The strict physical-device script mode remains available for optional future maintenance and is not a pending release requirement.
+
+## 2026-07-11 Inline tags and sidebar navigation
+
+### Completed
+
+- Studied flomo's public quick-capture, inline multi-level tag, sidebar, and review workflows without copying its visual design or product text.
+- Removed the dedicated tag field from Editor; `#tags` and `#parent/child` tags now live directly in the note body.
+- Added automatic migration that appends legacy explicit tags to the body when an older note is opened.
+- Replaced the horizontal tag chip strip with a persistent desktop sidebar and a slide-in narrow-screen side sheet.
+- Added parent-tag aggregation, hierarchical filtering, and a random-review action for active notes.
+
+### Verification
+
+- `flutter analyze`: passed with no issues.
+- `flutter test`: 25 tests passed, including hierarchical matching, parent filtering, random review, and legacy tag migration.

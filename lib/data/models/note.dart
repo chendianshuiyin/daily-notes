@@ -63,6 +63,33 @@ class Note {
     return List.unmodifiable(normalized);
   }
 
+  static List<String> expandTagHierarchy(Iterable<String> values) {
+    final expanded = <String>[];
+    final seen = <String>{};
+    for (final tag in normalizeTags(values)) {
+      final segments = tag.substring(1).split('/');
+      for (var depth = 1; depth <= segments.length; depth++) {
+        final ancestor = '#${segments.take(depth).join('/')}';
+        if (seen.add(ancestor.toLowerCase())) {
+          expanded.add(ancestor);
+        }
+      }
+    }
+    return List.unmodifiable(expanded);
+  }
+
+  static bool matchesTag(Iterable<String> values, String selectedTag) {
+    final normalized = normalizeTags([selectedTag]);
+    if (normalized.isEmpty) {
+      return false;
+    }
+    final selected = normalized.single.toLowerCase();
+    return normalizeTags(values).any((tag) {
+      final candidate = tag.toLowerCase();
+      return candidate == selected || candidate.startsWith('$selected/');
+    });
+  }
+
   Note copyWith({
     String? id,
     String? title,

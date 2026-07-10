@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -88,6 +90,68 @@ class _HistoryPageState extends State<HistoryPage> {
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
+  void _openRandomReview() {
+    final notes = context.read<NoteProvider>().activeNotes;
+    if (notes.isEmpty) {
+      _showMessage('还没有可回顾的笔记');
+      return;
+    }
+    final note = notes[math.Random().nextInt(notes.length)];
+    context.push('${AppRouter.editor}?noteId=${Uri.encodeComponent(note.id)}');
+  }
+
+  Future<void> _showTagSideSheet(
+    List<String> tags,
+    Map<String, int> counts,
+    int totalCount,
+  ) {
+    return showGeneralDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: '关闭标签侧边栏',
+      barrierColor: Colors.black54,
+      transitionDuration: const Duration(milliseconds: 180),
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(-1, 0),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut)),
+          child: child,
+        );
+      },
+      pageBuilder: (dialogContext, animation, secondaryAnimation) {
+        final width = math.min(
+          300.0,
+          MediaQuery.sizeOf(dialogContext).width * 0.82,
+        );
+        return Align(
+          alignment: Alignment.centerLeft,
+          child: Material(
+            color: Theme.of(dialogContext).colorScheme.surface,
+            child: SafeArea(
+              child: SizedBox(
+                width: width,
+                child: _TagSidebar(
+                  tags: tags,
+                  counts: counts,
+                  totalCount: totalCount,
+                  selectedTag: _selectedTag,
+                  showClose: true,
+                  onClose: () => Navigator.of(dialogContext).pop(),
+                  onSelected: (tag) {
+                    Navigator.of(dialogContext).pop();
+                    setState(() => _selectedTag = tag);
+                  },
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -99,6 +163,12 @@ class _HistoryPageState extends State<HistoryPage> {
           tooltip: '返回',
         ),
         actions: [
+          IconButton(
+            key: const ValueKey('randomReviewButton'),
+            icon: const Icon(Icons.shuffle_outlined),
+            onPressed: _openRandomReview,
+            tooltip: '随机回顾',
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () => context.read<NoteProvider>().loadNotes(),
@@ -122,7 +192,7 @@ class _HistoryPageState extends State<HistoryPage> {
           }).toList();
           final tagCounts = <String, int>{};
           for (final note in statusFilteredNotes) {
-            for (final tag in note.tags) {
+            for (final tag in Note.expandTagHierarchy(note.tags)) {
               tagCounts.update(tag, (count) => count + 1, ifAbsent: () => 1);
             }
           }
@@ -131,13 +201,13 @@ class _HistoryPageState extends State<HistoryPage> {
           final notes = _selectedTag == null
               ? statusFilteredNotes
               : statusFilteredNotes
-                    .where((note) => note.tags.contains(_selectedTag))
+                    .where((note) => Note.matchesTag(note.tags, _selectedTag!))
                     .toList();
 
           return Align(
             alignment: Alignment.topCenter,
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 900),
+              constraints: const BoxConstraints(maxWidth: 1100),
               child: Column(
                 children: [
                   Padding(
@@ -201,41 +271,77 @@ class _HistoryPageState extends State<HistoryPage> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  _TagArchiveBar(
-                    tags: sortedTags,
-                    counts: tagCounts,
-                    selectedTag: _selectedTag,
-                    onSelected: (tag) => setState(() => _selectedTag = tag),
-                  ),
                   const SizedBox(height: 4),
                   Expanded(
-                    child: notes.isEmpty
-                        ? _HistoryEmptyState(
-                            isSearching:
-                                _query.trim().isNotEmpty ||
-                                _selectedTag != null,
-                          )
-                        : RefreshIndicator(
-                            onRefresh: noteProvider.loadNotes,
-                            child: ListView.separated(
-                              padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
-                              itemBuilder: (context, index) {
-                                final note = notes[index];
-                                return _HistoryNoteCard(
-                                  note: note,
-                                  onArchive: () => _archiveNote(note),
-                                  onDelete: () => _deleteNote(note),
-                                  onTagSelected: (tag) {
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final results = _HistoryResults(
+                          notes: notes,
+                          isSearching:
+                              _query.trim().isNotEmpty || _selectedTag != null,
+                          onRefresh: noteProvider.loadNotes,
+                          onArchive: _archiveNote,
+                          onDelete: _deleteNote,
+                          onTagSelected: (tag) {
+                            setState(() => _selectedTag = tag);
+                          },
+                        );
+                        if (constraints.maxWidth >= 720) {
+                          return Row(
+                            children: [
+                              SizedBox(
+                                width: 220,
+                                child: _TagSidebar(
+                                  tags: sortedTags,
+                                  counts: tagCounts,
+                                  totalCount: statusFilteredNotes.length,
+                                  selectedTag: _selectedTag,
+                                  onSelected: (tag) {
                                     setState(() => _selectedTag = tag);
                                   },
-                                );
-                              },
-                              separatorBuilder: (context, index) =>
-                                  const SizedBox(height: 10),
-                              itemCount: notes.length,
+                                ),
+                              ),
+                              const VerticalDivider(width: 1),
+                              Expanded(child: results),
+                            ],
+                          );
+                        }
+                        return Column(
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+                              child: Row(
+                                children: [
+                                  OutlinedButton.icon(
+                                    key: const ValueKey(
+                                      'historyTagSidebarButton',
+                                    ),
+                                    onPressed: () => _showTagSideSheet(
+                                      sortedTags,
+                                      tagCounts,
+                                      statusFilteredNotes.length,
+                                    ),
+                                    icon: const Icon(Icons.tag_outlined),
+                                    label: Text(_selectedTag ?? '标签'),
+                                  ),
+                                  if (_selectedTag != null) ...[
+                                    const SizedBox(width: 8),
+                                    IconButton(
+                                      onPressed: () {
+                                        setState(() => _selectedTag = null);
+                                      },
+                                      icon: const Icon(Icons.close),
+                                      tooltip: '清除标签筛选',
+                                    ),
+                                  ],
+                                ],
+                              ),
                             ),
-                          ),
+                            Expanded(child: results),
+                          ],
+                        );
+                      },
+                    ),
                   ),
                 ],
               ),
@@ -284,81 +390,186 @@ class _FilterChip extends StatelessWidget {
   }
 }
 
-class _TagArchiveBar extends StatelessWidget {
-  const _TagArchiveBar({
+class _TagSidebar extends StatelessWidget {
+  const _TagSidebar({
     required this.tags,
     required this.counts,
+    required this.totalCount,
     required this.selectedTag,
     required this.onSelected,
+    this.showClose = false,
+    this.onClose,
   });
 
   final List<String> tags;
   final Map<String, int> counts;
+  final int totalCount;
   final String? selectedTag;
   final ValueChanged<String?> onSelected;
+  final bool showClose;
+  final VoidCallback? onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: Theme.of(context).colorScheme.surfaceContainerLow,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.sell_outlined,
+                size: 18,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '标签',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+              ),
+              if (showClose)
+                IconButton(
+                  onPressed: onClose,
+                  icon: const Icon(Icons.close),
+                  tooltip: '关闭',
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _TagSidebarTile(
+            key: const ValueKey('historyTag-all'),
+            label: '全部标签',
+            count: totalCount,
+            selected: selectedTag == null,
+            onTap: () => onSelected(null),
+          ),
+          const SizedBox(height: 4),
+          for (final tag in tags)
+            _TagSidebarTile(
+              key: ValueKey('historyTag-$tag'),
+              label: tag,
+              count: counts[tag] ?? 0,
+              depth: tag.substring(1).split('/').length - 1,
+              selected: selectedTag == tag,
+              onTap: () => onSelected(tag),
+            ),
+          if (tags.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Text('暂无标签', style: Theme.of(context).textTheme.bodySmall),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TagSidebarTile extends StatelessWidget {
+  const _TagSidebarTile({
+    super.key,
+    required this.label,
+    required this.count,
+    required this.selected,
+    required this.onTap,
+    this.depth = 0,
+  });
+
+  final String label;
+  final int count;
+  final bool selected;
+  final VoidCallback onTap;
+  final int depth;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-
-    ChoiceChip tagChip({
-      required Key key,
-      required String label,
-      required bool selected,
-      required VoidCallback onSelected,
-    }) {
-      final foreground = selected
-          ? colorScheme.onPrimaryContainer
-          : colorScheme.onSurface;
-      return ChoiceChip(
-        key: key,
-        label: Text(label),
-        labelStyle: Theme.of(
-          context,
-        ).textTheme.labelLarge?.copyWith(color: foreground),
-        selected: selected,
-        onSelected: (_) => onSelected(),
-        backgroundColor: colorScheme.surface,
-        selectedColor: colorScheme.primaryContainer,
-        side: BorderSide(
-          color: selected ? colorScheme.primary : colorScheme.outlineVariant,
+    final displayLabel = depth == 0 ? label : label.split('/').last;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(6),
+        child: Container(
+          height: 38,
+          padding: EdgeInsets.only(left: 10 + depth * 16, right: 10),
+          decoration: BoxDecoration(
+            color: selected ? colorScheme.primaryContainer : Colors.transparent,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Row(
+            children: [
+              if (depth > 0) ...[
+                Icon(
+                  Icons.subdirectory_arrow_right,
+                  size: 14,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 5),
+              ],
+              Expanded(
+                child: Text(
+                  displayLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: selected
+                        ? colorScheme.onPrimaryContainer
+                        : colorScheme.onSurface,
+                  ),
+                ),
+              ),
+              Text(
+                count.toString(),
+                style: Theme.of(context).textTheme.labelSmall,
+              ),
+            ],
+          ),
         ),
-        checkmarkColor: foreground,
-      );
-    }
+      ),
+    );
+  }
+}
 
-    return SizedBox(
-      height: 42,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        children: [
-          Icon(
-            Icons.sell_outlined,
-            size: 18,
-            color: Theme.of(context).colorScheme.primary,
-          ),
-          const SizedBox(width: 8),
-          tagChip(
-            key: const ValueKey('historyTag-all'),
-            label: '全部标签',
-            selected: selectedTag == null,
-            onSelected: () => onSelected(null),
-          ),
-          for (final tag in tags) ...[
-            const SizedBox(width: 8),
-            tagChip(
-              key: ValueKey('historyTag-$tag'),
-              label: '$tag ${counts[tag]}',
-              selected: selectedTag == tag,
-              onSelected: () => onSelected(tag),
-            ),
-          ],
-          if (tags.isEmpty) ...[
-            const SizedBox(width: 8),
-            const Chip(label: Text('暂无 #标签')),
-          ],
-        ],
+class _HistoryResults extends StatelessWidget {
+  const _HistoryResults({
+    required this.notes,
+    required this.isSearching,
+    required this.onRefresh,
+    required this.onArchive,
+    required this.onDelete,
+    required this.onTagSelected,
+  });
+
+  final List<Note> notes;
+  final bool isSearching;
+  final Future<void> Function() onRefresh;
+  final ValueChanged<Note> onArchive;
+  final ValueChanged<Note> onDelete;
+  final ValueChanged<String> onTagSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    if (notes.isEmpty) {
+      return _HistoryEmptyState(isSearching: isSearching);
+    }
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+        itemBuilder: (context, index) {
+          final note = notes[index];
+          return _HistoryNoteCard(
+            note: note,
+            onArchive: () => onArchive(note),
+            onDelete: () => onDelete(note),
+            onTagSelected: onTagSelected,
+          );
+        },
+        separatorBuilder: (context, index) => const SizedBox(height: 10),
+        itemCount: notes.length,
       ),
     );
   }

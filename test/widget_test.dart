@@ -91,6 +91,8 @@ void main() {
     expect(find.byTooltip('添加图片'), findsOneWidget);
     expect(find.byKey(const ValueKey('voiceInputButton')), findsOneWidget);
     expect(find.byTooltip('开始语音输入'), findsOneWidget);
+    expect(find.byKey(const ValueKey('inlineTagButton')), findsOneWidget);
+    expect(find.byKey(const ValueKey('noteTagField')), findsNothing);
 
     await tester.enterText(
       find.byKey(const ValueKey('noteTitleField')),
@@ -98,19 +100,8 @@ void main() {
     );
     await tester.enterText(
       find.byKey(const ValueKey('noteContentField')),
-      '这是一条可以保存并显示在首页的笔记。',
+      '这是一条可以保存并显示在首页的笔记。 #工作/项目',
     );
-    await tester.enterText(find.byKey(const ValueKey('noteTagField')), '工作');
-    await tester.testTextInput.receiveAction(TextInputAction.done);
-    await tester.pumpAndSettle();
-    expect(find.text('#工作'), findsOneWidget);
-    final editorTagChip = tester.widget<InputChip>(
-      find.byKey(const ValueKey('editorTag-#工作')),
-    );
-    final editorColorScheme = Theme.of(
-      tester.element(find.byKey(const ValueKey('editorTag-#工作'))),
-    ).colorScheme;
-    expect(editorTagChip.labelStyle?.color, editorColorScheme.onSurface);
     await tester.tap(find.byKey(const ValueKey('saveNoteButton')));
     await tester.pumpAndSettle();
 
@@ -171,7 +162,7 @@ void main() {
       Note(
         id: 'active-note',
         title: '当前项目',
-        content: '#工作 正在推进',
+        content: '#工作/项目 正在推进',
         createdAt: date,
         updatedAt: date,
       ),
@@ -197,14 +188,18 @@ void main() {
     expect(find.text('当前 1'), findsOneWidget);
     expect(find.text('已归档 1'), findsOneWidget);
     expect(find.byKey(const ValueKey('historyTag-#工作')), findsOneWidget);
+    expect(find.byKey(const ValueKey('historyTag-#工作/项目')), findsOneWidget);
     expect(find.byKey(const ValueKey('historyTag-#生活')), findsOneWidget);
-    final workTagChip = tester.widget<ChoiceChip>(
-      find.byKey(const ValueKey('historyTag-#工作')),
+    expect(find.byKey(const ValueKey('randomReviewButton')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('randomReviewButton')));
+    await tester.pumpAndSettle();
+    final reviewedTitle = tester.widget<TextField>(
+      find.byKey(const ValueKey('noteTitleField')),
     );
-    final colorScheme = Theme.of(
-      tester.element(find.byKey(const ValueKey('historyTag-#工作'))),
-    ).colorScheme;
-    expect(workTagChip.labelStyle?.color, colorScheme.onSurface);
+    expect(reviewedTitle.controller?.text, '当前项目');
+    await tester.tap(find.byTooltip('返回'));
+    await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const ValueKey('historyTag-#工作')));
     await tester.pumpAndSettle();
@@ -225,6 +220,34 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('没有匹配的笔记'), findsOneWidget);
+  });
+
+  testWidgets('Moves legacy explicit tags into the note body', (
+    WidgetTester tester,
+  ) async {
+    final date = DateTime.now();
+    await testRepository.upsertNote(
+      Note(
+        id: 'legacy-explicit-tag',
+        title: '旧标签笔记',
+        content: '原始正文',
+        tags: const ['#迁移/待办'],
+        createdAt: date,
+        updatedAt: date,
+      ),
+    );
+
+    await tester.pumpWidget(testApp);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('历史记录'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('旧标签笔记'));
+    await tester.pumpAndSettle();
+
+    final contentField = tester.widget<TextField>(
+      find.byKey(const ValueKey('noteContentField')),
+    );
+    expect(contentField.controller?.text, '原始正文\n\n#迁移/待办');
   });
 
   testWidgets('Persists theme mode from settings', (WidgetTester tester) async {

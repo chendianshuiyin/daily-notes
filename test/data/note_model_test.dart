@@ -27,4 +27,14 @@ void main() {
 
     expect(note.tags, ['#旧标签']);
   });
+
+  test('expands and matches hierarchical inline tags', () {
+    expect(Note.expandTagHierarchy(['#工作/项目/发布']), [
+      '#工作',
+      '#工作/项目',
+      '#工作/项目/发布',
+    ]);
+    expect(Note.matchesTag(['#工作/项目'], '#工作'), isTrue);
+    expect(Note.matchesTag(['#生活'], '#工作'), isFalse);
+  });
 }

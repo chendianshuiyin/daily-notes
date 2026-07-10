@@ -26,7 +26,6 @@ class EditorPage extends StatefulWidget {
 class _EditorPageState extends State<EditorPage> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _contentController = TextEditingController();
-  final TextEditingController _tagController = TextEditingController();
   final NoteImageService _imageService = const NoteImageService();
   final SpeechToText _speech = SpeechToText();
 
@@ -40,11 +39,9 @@ class _EditorPageState extends State<EditorPage> {
   bool _isListening = false;
   Note? _currentNote;
   List<NoteImage> _images = [];
-  List<String> _tags = [];
   String _initialTitle = '';
   String _initialContent = '';
   String _initialImageIds = '';
-  String _initialTags = '';
   String _voiceBaseContent = '';
 
   bool get _isNewNote => widget.noteId == null;
@@ -69,7 +66,6 @@ class _EditorPageState extends State<EditorPage> {
     _speech.cancel();
     _titleController.dispose();
     _contentController.dispose();
-    _tagController.dispose();
     super.dispose();
   }
 
@@ -106,14 +102,13 @@ class _EditorPageState extends State<EditorPage> {
     }
 
     _currentNote = note;
+    final editorContent = _contentWithInlineTags(note);
     _initialTitle = note.title;
-    _initialContent = note.content;
+    _initialContent = editorContent;
     _initialImageIds = _imageIds(note.images);
-    _initialTags = _tagIds(note.tags);
     _images = List.of(note.images);
-    _tags = List.of(note.tags);
     _titleController.text = note.title;
-    _contentController.text = note.content;
+    _contentController.text = editorContent;
     setState(() {
       _isLoading = false;
       _isDirty = false;
@@ -138,7 +133,7 @@ class _EditorPageState extends State<EditorPage> {
         title: title,
         content: content,
         images: _images,
-        tags: _tags,
+        tags: Note.extractTags('$title $content'),
       );
 
       if (!mounted) {
@@ -150,7 +145,6 @@ class _EditorPageState extends State<EditorPage> {
         _initialTitle = note.title;
         _initialContent = note.content;
         _initialImageIds = _imageIds(note.images);
-        _initialTags = _tagIds(note.tags);
         _isDirty = false;
         _isSaving = false;
       });
@@ -253,8 +247,7 @@ class _EditorPageState extends State<EditorPage> {
     final isDirty =
         _titleController.text.trim() != _initialTitle ||
         _contentController.text.trim() != _initialContent ||
-        _imageIds(_images) != _initialImageIds ||
-        _tagIds(_tags) != _initialTags;
+        _imageIds(_images) != _initialImageIds;
     if (_isDirty != isDirty) {
       setState(() => _isDirty = isDirty);
     }
@@ -264,41 +257,20 @@ class _EditorPageState extends State<EditorPage> {
     return images.map((image) => image.id).join('|');
   }
 
-  String _tagIds(Iterable<String> tags) {
-    return Note.normalizeTags(tags).join('|');
-  }
-
-  void _handleTagInput(String value) {
-    if (value.endsWith(' ') || value.endsWith(',') || value.endsWith('，')) {
-      _addTag(value);
+  String _contentWithInlineTags(Note note) {
+    final inlineTags = Note.normalizeTags(
+      Note.extractTags('${note.title} ${note.content}'),
+    ).map((tag) => tag.toLowerCase()).toSet();
+    final missingTags = note.tags
+        .where((tag) => !inlineTags.contains(tag.toLowerCase()))
+        .toList();
+    if (missingTags.isEmpty) {
+      return note.content;
     }
-  }
-
-  void _addTag([String? value]) {
-    final normalized = Note.normalizeTags([value ?? _tagController.text]);
-    if (normalized.isEmpty) {
-      _tagController.clear();
-      return;
-    }
-    if (_tags.length >= 8) {
-      _showError('每条笔记最多添加 8 个标签');
-      return;
-    }
-    final tag = normalized.first;
-    if (_tags.any((item) => item.toLowerCase() == tag.toLowerCase())) {
-      _tagController.clear();
-      return;
-    }
-    setState(() {
-      _tags = [..._tags, tag];
-      _tagController.clear();
-    });
-    _updateDirtyState();
-  }
-
-  void _removeTag(String tag) {
-    setState(() => _tags = _tags.where((item) => item != tag).toList());
-    _updateDirtyState();
+    final content = note.content.trimRight();
+    return content.isEmpty
+        ? missingTags.join(' ')
+        : '$content\n\n${missingTags.join(' ')}';
   }
 
   Future<void> _pickImages() async {
@@ -349,6 +321,28 @@ class _EditorPageState extends State<EditorPage> {
     _contentController.value = value.copyWith(
       text: updatedText,
       selection: TextSelection.collapsed(offset: offset + insertion.length),
+      composing: TextRange.empty,
+    );
+    _updateDirtyState();
+  }
+
+  void _insertTagMarker() {
+    final value = _contentController.value;
+    final selection = value.selection;
+    final start = selection.isValid ? selection.start : value.text.length;
+    final end = selection.isValid ? selection.end : start;
+    final selected = value.text
+        .substring(start, end)
+        .trim()
+        .replaceAll(' ', '_');
+    final needsSpace =
+        start > 0 && !RegExp(r'\s').hasMatch(value.text[start - 1]);
+    final insertion =
+        '${needsSpace ? ' ' : ''}#${selected.isEmpty ? '' : selected}';
+    final updatedText = value.text.replaceRange(start, end, insertion);
+    _contentController.value = value.copyWith(
+      text: updatedText,
+      selection: TextSelection.collapsed(offset: start + insertion.length),
       composing: TextRange.empty,
     );
     _updateDirtyState();
@@ -668,14 +662,6 @@ class _EditorPageState extends State<EditorPage> {
                                 ),
                               ),
                               const Divider(),
-                              _TagEditor(
-                                tags: _tags,
-                                controller: _tagController,
-                                onChanged: _handleTagInput,
-                                onSubmitted: _addTag,
-                                onRemove: _removeTag,
-                              ),
-                              const Divider(),
                               Expanded(
                                 child: TextField(
                                   key: const ValueKey('noteContentField'),
@@ -687,7 +673,7 @@ class _EditorPageState extends State<EditorPage> {
                                   expands: true,
                                   textAlignVertical: TextAlignVertical.top,
                                   decoration: const InputDecoration(
-                                    hintText: '记录今天发生了什么，写下想法或待办...',
+                                    hintText: '记录想法，可直接输入 #标签/子标签...',
                                     border: InputBorder.none,
                                     enabledBorder: InputBorder.none,
                                     focusedBorder: InputBorder.none,
@@ -761,6 +747,12 @@ class _EditorPageState extends State<EditorPage> {
                             tooltip: '插入当前时间',
                           ),
                           IconButton(
+                            key: const ValueKey('inlineTagButton'),
+                            onPressed: _insertTagMarker,
+                            icon: const Icon(Icons.tag_outlined),
+                            tooltip: '插入 #标签',
+                          ),
+                          IconButton(
                             key: const ValueKey('voiceInputButton'),
                             onPressed: !_voiceInputSupported || _isStartingVoice
                                 ? null
@@ -820,83 +812,6 @@ class _EditorPageState extends State<EditorPage> {
   String _editorDateLabel() {
     final date = _currentNote?.createdAt ?? DateTime.now();
     return '${date.year}年${date.month}月${date.day}日';
-  }
-}
-
-class _TagEditor extends StatelessWidget {
-  const _TagEditor({
-    required this.tags,
-    required this.controller,
-    required this.onChanged,
-    required this.onSubmitted,
-    required this.onRemove,
-  });
-
-  final List<String> tags;
-  final TextEditingController controller;
-  final ValueChanged<String> onChanged;
-  final ValueChanged<String> onSubmitted;
-  final ValueChanged<String> onRemove;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return SizedBox(
-      height: 48,
-      child: Row(
-        children: [
-          Icon(
-            Icons.tag,
-            size: 18,
-            color: Theme.of(context).colorScheme.primary,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              children: [
-                for (final tag in tags) ...[
-                  InputChip(
-                    key: ValueKey('editorTag-$tag'),
-                    label: Text(tag),
-                    labelStyle: Theme.of(context).textTheme.labelLarge
-                        ?.copyWith(color: colorScheme.onSurface),
-                    backgroundColor: colorScheme.surfaceContainerLow,
-                    side: BorderSide(color: colorScheme.outlineVariant),
-                    onDeleted: () => onRemove(tag),
-                    deleteIcon: Icon(
-                      Icons.close,
-                      size: 16,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  const SizedBox(width: 6),
-                ],
-                SizedBox(
-                  width: 150,
-                  child: TextField(
-                    key: const ValueKey('noteTagField'),
-                    controller: controller,
-                    onChanged: onChanged,
-                    onSubmitted: onSubmitted,
-                    textInputAction: TextInputAction.done,
-                    decoration: const InputDecoration(
-                      hintText: '添加 #标签',
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                      filled: false,
-                      contentPadding: EdgeInsets.symmetric(vertical: 10),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
 
