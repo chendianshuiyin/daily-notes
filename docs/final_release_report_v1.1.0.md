@@ -42,4 +42,6 @@ Dedicated tags are serialized in Hive and JSON backups. Existing notes without a
 
 ## Scope and Residual Risk
 
-iOS and macOS are intentionally deferred. Linux remains supported for notes but does not expose voice input. Speech recognition depends on platform services and is designed for short dictation rather than continuous recording. A physical Android phone was not connected, so hardware installation remains unverified even though signed APK installation and full interaction passed on the Android emulator.
+iOS and macOS are intentionally deferred. Linux remains supported for notes but does not expose voice input. Speech recognition depends on platform services and is designed for short dictation rather than continuous recording.
+
+A physical Android phone was not connected, so hardware installation remains unverified even though signed APK installation and full interaction passed on the Android emulator. `scripts/verify_android_device.ps1` now provides the exact remaining gate: it rejects emulators by default, checks package/version, installs the release APK, writes and saves a smoke note, performs a cold start, verifies persistence, and stores UI XML plus screenshots under `dist/android-device-verification/`. Its emulator-only maintenance mode passed end to end against v1.1.0.

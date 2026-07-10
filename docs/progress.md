@@ -434,3 +434,25 @@
 - Linux asset: 11,001,268 bytes, SHA-256 `BB3C55A16BD72CDAB8879B396BD6A18ECE742AAB5C7315125416B52A0C80165D`.
 - Linux `.sha256` sidecar contains the same digest.
 - GitHub asset digests match local Android, Windows, Web, and downloaded Linux SHA-256 values.
+
+## 2026-07-11 Physical Android verification automation
+
+### Completed
+
+- Added `scripts/verify_android_device.ps1` for the remaining hardware release gate.
+- Made physical-device selection mandatory by default; an emulator is accepted only with explicit `-AllowEmulator`.
+- Added APK package/version inspection, upgrade installation, launch verification, smoke-note entry, save, force-stop, cold launch, and persistence checks.
+- Added UI hierarchy and screenshot evidence capture under ignored `dist/android-device-verification/`.
+- Documented the one-command physical verification flow in README and the final release report.
+
+### Verification
+
+- PowerShell parser check: passed with no syntax errors.
+- Default run with only `emulator-5554` connected: correctly rejected as non-physical evidence.
+- Explicit emulator maintenance run: passed end to end for package `com.chendianshuiyin.dailynotes`, version `1.1.0` (`versionCode=5`).
+- Verified APK SHA-256 `84B44433730255623F48B85FE7F3BEDB8C2A2DBECBEBDE5C30E7029CE806B5B5`.
+- Created `emulator-script-smoke-20260711b`, saved it, force-stopped the app, cold-launched, and confirmed the note remained visible.
+
+### Remaining
+
+- Run the same script without `-AllowEmulator` after a physical Android phone is connected and authorized.
