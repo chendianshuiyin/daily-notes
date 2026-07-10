@@ -25,15 +25,15 @@ Daily Notes 是一个现代、轻量、本地优先的 Flutter 日记应用。�
 
 Android 安装：下载 APK 后允许浏览器或文件管理器“安装未知来源应用”，再按系统提示安装。包名为 `com.chendianshuiyin.dailynotes`。
 
-## Android 实体设备验收
+## Android 自动验收
 
-连接已开启 USB 调试并授权的 Android 手机，然后运行：
+当前发布使用 Android 36 模拟器作为 Android 端最终验收环境：
 
 ```powershell
-pwsh -File scripts/verify_android_device.ps1
+pwsh -File scripts/verify_android_device.ps1 -DeviceSerial emulator-5554 -AllowEmulator
 ```
 
-脚本默认只接受实体设备，会核对 APK 包名和版本、升级安装、启动应用、创建并保存测试笔记，最后强制停止并冷启动验证持久化。证据输出至 `dist/android-device-verification/`。仅维护脚本时可显式使用 `-AllowEmulator`。
+脚本会核对 APK 包名和版本、升级安装、启动应用、创建并保存测试笔记，最后强制停止并冷启动验证持久化。证据输出至 `dist/android-device-verification/`。脚本仍保留默认只接受实体设备的严格模式，但实体手机不是本版发布门槛。
 
 ## 核心功能
 
@@ -78,4 +78,4 @@ flutter run -d windows
 
 ## 当前范围
 
-当前维护和发布 Android、Windows、Linux 与 Web；iOS/macOS 暂不纳入本轮。Linux 版不提供语音输入，其余笔记功能保持一致。数据默认仅存储在当前设备，不包含云同步。实体 Android 手机安装仍待连接设备后补充，模拟器安装与完整使用流程已通过。
+当前维护和发布 Android、Windows、Linux 与 Web；iOS/macOS 暂不纳入本轮。Linux 版不提供语音输入，其余笔记功能保持一致。数据默认仅存储在当前设备，不包含云同步。Android 模拟器安装与完整使用流程已通过，实体手机不纳入本版验收范围。

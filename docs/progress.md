@@ -453,6 +453,8 @@
 - Verified APK SHA-256 `84B44433730255623F48B85FE7F3BEDB8C2A2DBECBEBDE5C30E7029CE806B5B5`.
 - Created `emulator-script-smoke-20260711b`, saved it, force-stopped the app, cold-launched, and confirmed the note remained visible.
 
-### Remaining
+### Scope Decision
 
-- Run the same script without `-AllowEmulator` after a physical Android phone is connected and authorized.
+- On 2026-07-11, the project owner explicitly removed physical-phone execution from the release acceptance scope.
+- The completed Android 36 emulator install, write, save, force-stop, cold-launch, and persistence evidence is accepted as the final Android gate.
+- The strict physical-device script mode remains available for optional future maintenance and is not a pending release requirement.

@@ -27,9 +27,9 @@ Daily Notes v1.1.0 is published for Android, Windows, Linux, and Web. Core local
 
 The final signed APK upgraded over v1.0.3 and preserved the existing image note. Android 36 AVD `Medium_Phone_API_36.1` verified visible tag chips, tag persistence and filtering, recording permission, no-speech feedback, image display, version metadata, and cold-start data retention. APK signature and package metadata checks passed.
 
-## Remaining Operational Work
+## Operational Notes
 
-- Connect an authorized physical Android phone and run `pwsh -File scripts/verify_android_device.ps1`.
+- No required release gates remain; physical-phone execution is outside the accepted v1.1.0 scope.
 - Keep the private release keystore and `android/key.properties` backed up securely outside Git.
 
 iOS and macOS remain outside the active release scope. Linux supports note workflows but not voice input.

@@ -43,4 +43,4 @@ Daily Notes v1.1.0 adds structured `#tags` and short voice dictation to the exis
 
 - iOS and macOS are deferred.
 - Speech recognition is intended for short dictation and depends on the platform speech service.
-- A physical Android phone installation remains to be checked; emulator installation and use are verified.
+- Android acceptance is based on the completed Android 36 emulator installation and use workflow; physical-phone execution is outside this release scope.
