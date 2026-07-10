@@ -64,14 +64,16 @@ dependencies:
   # Android、Web 与 Windows 短语音转写
   speech_to_text: ^7.4.0
 
+  # WebDAV 同步与加密凭据存储
+  webdav_client: ^1.2.2
+  dio: ^5.10.0
+  flutter_secure_storage: ^10.3.1
+
   # 富文本编辑器 (暂时注释，后续添加)
   # flutter_quill: any
 
   # 热力图日历 (暂时注释，后续添加)
   # flutter_heatmap_calendar: any
-
-  # WebDAV 客户端 (暂时注释，后续添加)
-  # webdav_client: any
 
 dev_dependencies:
   flutter_test:

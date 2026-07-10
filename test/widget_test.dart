@@ -275,7 +275,25 @@ void main() {
 
     expect(find.text('复制笔记备份'), findsOneWidget);
     expect(find.text('从剪贴板恢复'), findsOneWidget);
-    expect(find.text('WebDAV 同步'), findsNothing);
+    expect(find.byKey(const ValueKey('webDavConfigItem')), findsOneWidget);
+    expect(find.byKey(const ValueKey('webDavSyncItem')), findsOneWidget);
+    expect(find.byKey(const ValueKey('webDavUploadItem')), findsOneWidget);
+    expect(find.byKey(const ValueKey('webDavDownloadItem')), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('webDavConfigItem')),
+      240,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('webDavConfigItem')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('WebDAV 同步'), findsOneWidget);
+    expect(find.byKey(const ValueKey('webDavServerField')), findsOneWidget);
+    expect(find.byKey(const ValueKey('webDavUsernameField')), findsOneWidget);
+    expect(find.byKey(const ValueKey('webDavPasswordField')), findsOneWidget);
+    expect(find.byKey(const ValueKey('webDavDirectoryField')), findsOneWidget);
   });
 
   testWidgets('Copies a valid backup to the clipboard', (

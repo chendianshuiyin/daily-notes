@@ -473,3 +473,28 @@
 
 - `flutter analyze`: passed with no issues.
 - `flutter test`: 25 tests passed, including hierarchical matching, parent filtering, random review, and legacy tag migration.
+
+## 2026-07-11 WebDAV synchronization
+
+### Completed
+
+- Added encrypted WebDAV configuration for server URL, username, password, and remote directory.
+- Added connection testing, explicit overwrite upload, download-and-merge, and bidirectional newest-update synchronization.
+- Stored one versioned JSON backup at `/DailyNotes/daily-notes-backup.json`; writes use a temporary file and rename when supported.
+- Kept local-only and remote-only notes, selected the newer `updatedAt` value for matching IDs, and deliberately avoided automatic deletion propagation.
+- Added Android backup hardening and Linux `libsecret` build dependencies.
+- Added focused merge, malformed-backup, tag round-trip, and Settings UI coverage.
+
+### Verification
+
+- `flutter analyze`: passed with no issues.
+- `flutter test`: 29 tests passed.
+- Android and Web release builds passed.
+- Android 36 emulator verified the synchronization section, WebDAV dialog, tag side sheet, and editor toolbar without overflow.
+- Windows source configuration is complete; this host still needs ATL installed for its selected MSVC 14.38 toolchain before rebuilding the Windows package.
+
+### Platform Notes
+
+- Web deployments require HTTPS and a WebDAV endpoint that permits the site's CORS origin.
+- Linux requires `libsecret-1-dev` to build and a Secret Service provider at runtime.
+- iOS and macOS remain outside the active release scope.

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import '../../../data/services/services.dart';
 import '../../providers/providers.dart';
 
 /// Application settings and local data management.
@@ -81,6 +82,261 @@ class SettingsPage extends StatelessWidget {
     }
   }
 
+  Future<void> _showWebDavDialog(BuildContext context) async {
+    final provider = context.read<WebDavProvider>();
+    final current = provider.config;
+    final serverController = TextEditingController(
+      text: current?.serverUrl ?? '',
+    );
+    final usernameController = TextEditingController(
+      text: current?.username ?? '',
+    );
+    final passwordController = TextEditingController(
+      text: current?.password ?? '',
+    );
+    final directoryController = TextEditingController(
+      text: current?.remoteDirectory ?? '/DailyNotes',
+    );
+    var obscurePassword = true;
+    var isWorking = false;
+    String? errorMessage;
+
+    WebDavConfig readConfig() {
+      return WebDavConfig.validated(
+        serverUrl: serverController.text,
+        username: usernameController.text,
+        password: passwordController.text,
+        remoteDirectory: directoryController.text,
+      );
+    }
+
+    try {
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (dialogContext, setDialogState) {
+            Future<void> run(
+              Future<void> Function(WebDavConfig config) action, {
+              required bool closeWhenDone,
+            }) async {
+              setDialogState(() {
+                isWorking = true;
+                errorMessage = null;
+              });
+              try {
+                await action(readConfig());
+                if (!dialogContext.mounted) {
+                  return;
+                }
+                if (closeWhenDone) {
+                  Navigator.of(dialogContext).pop();
+                } else {
+                  setDialogState(() => isWorking = false);
+                }
+              } on FormatException catch (error) {
+                setDialogState(() {
+                  isWorking = false;
+                  errorMessage = error.message.toString();
+                });
+              } on WebDavSyncException catch (error) {
+                setDialogState(() {
+                  isWorking = false;
+                  errorMessage = error.message;
+                });
+              } catch (_) {
+                setDialogState(() {
+                  isWorking = false;
+                  errorMessage = 'WebDAV 操作失败';
+                });
+              }
+            }
+
+            return AlertDialog(
+              title: const Text('WebDAV 同步'),
+              content: SizedBox(
+                width: 480,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextField(
+                        key: const ValueKey('webDavServerField'),
+                        controller: serverController,
+                        enabled: !isWorking,
+                        keyboardType: TextInputType.url,
+                        decoration: const InputDecoration(
+                          labelText: '服务器地址',
+                          hintText: 'https://dav.example.com/',
+                          prefixIcon: Icon(Icons.cloud_outlined),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        key: const ValueKey('webDavUsernameField'),
+                        controller: usernameController,
+                        enabled: !isWorking,
+                        decoration: const InputDecoration(
+                          labelText: '用户名',
+                          prefixIcon: Icon(Icons.person_outline),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        key: const ValueKey('webDavPasswordField'),
+                        controller: passwordController,
+                        enabled: !isWorking,
+                        obscureText: obscurePassword,
+                        decoration: InputDecoration(
+                          labelText: '密码或应用密码',
+                          prefixIcon: const Icon(Icons.key_outlined),
+                          suffixIcon: IconButton(
+                            onPressed: isWorking
+                                ? null
+                                : () => setDialogState(
+                                    () => obscurePassword = !obscurePassword,
+                                  ),
+                            icon: Icon(
+                              obscurePassword
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
+                            ),
+                            tooltip: obscurePassword ? '显示密码' : '隐藏密码',
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        key: const ValueKey('webDavDirectoryField'),
+                        controller: directoryController,
+                        enabled: !isWorking,
+                        decoration: const InputDecoration(
+                          labelText: '远端目录',
+                          prefixIcon: Icon(Icons.folder_outlined),
+                        ),
+                      ),
+                      if (errorMessage != null) ...[
+                        const SizedBox(height: 12),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            errorMessage!,
+                            style: TextStyle(
+                              color: Theme.of(dialogContext).colorScheme.error,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                if (current != null)
+                  TextButton(
+                    onPressed: isWorking
+                        ? null
+                        : () async {
+                            await provider.clearConfig();
+                            if (dialogContext.mounted) {
+                              Navigator.of(dialogContext).pop();
+                            }
+                          },
+                    child: const Text('清除配置'),
+                  ),
+                TextButton(
+                  onPressed: isWorking
+                      ? null
+                      : () =>
+                            run(provider.testConnection, closeWhenDone: false),
+                  child: const Text('测试连接'),
+                ),
+                FilledButton(
+                  onPressed: isWorking
+                      ? null
+                      : () => run(provider.saveAndTest, closeWhenDone: true),
+                  child: isWorking
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('保存并测试'),
+                ),
+              ],
+            );
+          },
+        ),
+      );
+    } finally {
+      serverController.dispose();
+      usernameController.dispose();
+      passwordController.dispose();
+      directoryController.dispose();
+    }
+
+    if (context.mounted && provider.message != null) {
+      _showMessage(context, provider.message!);
+    }
+  }
+
+  Future<void> _runWebDavAction(
+    BuildContext context,
+    Future<void> Function() action,
+  ) async {
+    try {
+      await action();
+      if (context.mounted) {
+        final message = context.read<WebDavProvider>().message;
+        _showMessage(context, message ?? 'WebDAV 操作完成');
+      }
+    } on WebDavSyncException catch (error) {
+      if (context.mounted) {
+        _showMessage(context, error.message);
+      }
+    } catch (_) {
+      if (context.mounted) {
+        _showMessage(context, 'WebDAV 操作失败');
+      }
+    }
+  }
+
+  Future<void> _confirmUpload(BuildContext context) async {
+    final shouldUpload = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('覆盖远端备份？'),
+        content: const Text('将用当前设备的全部笔记替换远端备份。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('覆盖上传'),
+          ),
+        ],
+      ),
+    );
+    if (shouldUpload != true || !context.mounted) {
+      return;
+    }
+    final webDav = context.read<WebDavProvider>();
+    final notes = context.read<NoteProvider>();
+    await _runWebDavAction(context, () => webDav.upload(notes));
+  }
+
+  String _webDavStatus(WebDavProvider provider) {
+    if (!provider.isConfigured) {
+      return '未配置';
+    }
+    final lastSync = provider.lastSyncAt;
+    if (lastSync == null) {
+      return provider.config!.serverUrl;
+    }
+    final minute = lastSync.minute.toString().padLeft(2, '0');
+    return '上次同步 ${lastSync.month}月${lastSync.day}日 ${lastSync.hour}:$minute';
+  }
+
   void _showMessage(BuildContext context, String message) {
     ScaffoldMessenger.of(
       context,
@@ -101,6 +357,8 @@ class SettingsPage extends StatelessWidget {
       body: Consumer<AppSettingsProvider>(
         builder: (context, settings, child) {
           final noteCount = context.watch<NoteProvider>().notes.length;
+          final webDav = context.watch<WebDavProvider>();
+          final noteProvider = context.read<NoteProvider>();
           return Align(
             alignment: Alignment.topCenter,
             child: ConstrainedBox(
@@ -129,6 +387,63 @@ class SettingsPage extends StatelessWidget {
                         title: '从剪贴板恢复',
                         subtitle: '合并备份，同 ID 内容将覆盖',
                         onTap: () => _restoreBackup(context),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  _SettingsSection(
+                    title: '同步',
+                    children: [
+                      _SettingsItem(
+                        key: const ValueKey('webDavConfigItem'),
+                        icon: Icons.cloud_outlined,
+                        title: 'WebDAV 配置',
+                        subtitle: _webDavStatus(webDav),
+                        onTap: webDav.isBusy
+                            ? null
+                            : () => _showWebDavDialog(context),
+                      ),
+                      _SettingsItem(
+                        key: const ValueKey('webDavSyncItem'),
+                        icon: Icons.sync,
+                        title: '立即同步',
+                        subtitle: '合并两端较新内容，不自动删除',
+                        trailing: webDav.operation == WebDavOperation.syncing
+                            ? const _SettingsProgress()
+                            : null,
+                        onTap: webDav.isConfigured && !webDav.isBusy
+                            ? () => _runWebDavAction(
+                                context,
+                                () => webDav.synchronize(noteProvider),
+                              )
+                            : null,
+                      ),
+                      _SettingsItem(
+                        key: const ValueKey('webDavUploadItem'),
+                        icon: Icons.cloud_upload_outlined,
+                        title: '覆盖上传',
+                        subtitle: '用本地全量备份替换远端文件',
+                        trailing: webDav.operation == WebDavOperation.uploading
+                            ? const _SettingsProgress()
+                            : null,
+                        onTap: webDav.isConfigured && !webDav.isBusy
+                            ? () => _confirmUpload(context)
+                            : null,
+                      ),
+                      _SettingsItem(
+                        key: const ValueKey('webDavDownloadItem'),
+                        icon: Icons.cloud_download_outlined,
+                        title: '下载并合并',
+                        subtitle: '保留本地笔记，同 ID 以远端内容覆盖',
+                        trailing:
+                            webDav.operation == WebDavOperation.downloading
+                            ? const _SettingsProgress()
+                            : null,
+                        onTap: webDav.isConfigured && !webDav.isBusy
+                            ? () => _runWebDavAction(context, () async {
+                                await webDav.download(noteProvider);
+                              })
+                            : null,
                       ),
                     ],
                   ),
@@ -250,11 +565,13 @@ class _SettingsSection extends StatelessWidget {
 /// 设置项
 class _SettingsItem extends StatelessWidget {
   const _SettingsItem({
+    super.key,
     required this.icon,
     required this.title,
     required this.subtitle,
     this.showChevron = true,
     this.onTap,
+    this.trailing,
   });
 
   final IconData icon;
@@ -262,6 +579,7 @@ class _SettingsItem extends StatelessWidget {
   final String subtitle;
   final bool showChevron;
   final VoidCallback? onTap;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -269,8 +587,21 @@ class _SettingsItem extends StatelessWidget {
       leading: Icon(icon),
       title: Text(title),
       subtitle: Text(subtitle),
-      trailing: showChevron ? const Icon(Icons.chevron_right) : null,
+      trailing:
+          trailing ?? (showChevron ? const Icon(Icons.chevron_right) : null),
       onTap: onTap,
+    );
+  }
+}
+
+class _SettingsProgress extends StatelessWidget {
+  const _SettingsProgress();
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox.square(
+      dimension: 20,
+      child: CircularProgressIndicator(strokeWidth: 2),
     );
   }
 }

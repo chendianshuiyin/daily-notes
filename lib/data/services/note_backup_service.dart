@@ -90,7 +90,18 @@ class NoteBackupService {
       updatedAt: _readDate(map['updatedAt'], 'updatedAt', index: index),
       isArchived: isArchived,
       images: images,
+      tags: _readTags(map['tags'], index),
     );
+  }
+
+  List<String> _readTags(Object? value, int noteIndex) {
+    if (value == null) {
+      return const [];
+    }
+    if (value is! List || value.any((item) => item is! String)) {
+      throw FormatException('第 ${noteIndex + 1} 条笔记的标签列表无效。');
+    }
+    return Note.normalizeTags(value.cast<String>());
   }
 
   List<NoteImage> _readImages(Object? value, int noteIndex) {

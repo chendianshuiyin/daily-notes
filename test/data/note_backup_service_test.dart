@@ -15,6 +15,7 @@ void main() {
       createdAt: DateTime.utc(2026, 7, 9, 8),
       updatedAt: DateTime.utc(2026, 7, 10, 9),
       isArchived: true,
+      tags: const ['#工作/计划'],
       images: [
         NoteImage(
           id: 'image-1',
@@ -37,6 +38,7 @@ void main() {
     expect(backup.notes.single.createdAt, note.createdAt);
     expect(backup.notes.single.updatedAt, note.updatedAt);
     expect(backup.notes.single.isArchived, isTrue);
+    expect(backup.notes.single.tags, ['#工作/计划']);
     expect(backup.notes.single.images.single.name, 'photo.jpg');
   });
 

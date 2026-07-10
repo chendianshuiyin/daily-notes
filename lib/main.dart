@@ -39,6 +39,7 @@ class _DailyNotesAppState extends State<DailyNotesApp> {
         ChangeNotifierProvider(
           create: (_) => AppSettingsProvider()..loadSettings(),
         ),
+        ChangeNotifierProvider(create: (_) => WebDavProvider()..load()),
       ],
       child: Consumer<AppSettingsProvider>(
         builder: (context, settings, child) {
