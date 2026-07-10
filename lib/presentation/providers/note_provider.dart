@@ -8,7 +8,7 @@ import '../../domain/repositories/repositories.dart';
 
 class NoteProvider extends ChangeNotifier {
   NoteProvider({NoteRepository? repository})
-    : _repository = repository ?? const SharedPreferencesNoteRepository();
+    : _repository = repository ?? HiveNoteRepository();
 
   final NoteRepository _repository;
   final NoteBackupService _backupService = const NoteBackupService();

@@ -4,10 +4,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:daily_notes/main.dart';
 import 'package:daily_notes/data/models/models.dart';
+import 'package:daily_notes/data/repositories/repositories.dart';
 import 'package:daily_notes/data/services/services.dart';
 import 'package:daily_notes/domain/repositories/repositories.dart';
 
 void main() {
+  const testApp = DailyNotesApp(
+    noteRepository: SharedPreferencesNoteRepository(),
+  );
   String clipboardText = '';
 
   setUp(() {
@@ -33,14 +37,14 @@ void main() {
   });
 
   testWidgets('App builds successfully', (WidgetTester tester) async {
-    await tester.pumpWidget(const DailyNotesApp());
+    await tester.pumpWidget(testApp);
     await tester.pumpAndSettle();
 
     expect(find.text('Daily Notes'), findsOneWidget);
   });
 
   testWidgets('Creates and lists a note', (WidgetTester tester) async {
-    await tester.pumpWidget(const DailyNotesApp());
+    await tester.pumpWidget(testApp);
     await tester.pumpAndSettle();
 
     await tester.tap(find.byTooltip('新建笔记'));
@@ -62,7 +66,7 @@ void main() {
   });
 
   testWidgets('Persists theme mode from settings', (WidgetTester tester) async {
-    await tester.pumpWidget(const DailyNotesApp());
+    await tester.pumpWidget(testApp);
     await tester.pumpAndSettle();
 
     await tester.tap(find.byTooltip('设置'));
@@ -78,7 +82,7 @@ void main() {
   testWidgets('Shows data backup and restore actions', (
     WidgetTester tester,
   ) async {
-    await tester.pumpWidget(const DailyNotesApp());
+    await tester.pumpWidget(testApp);
     await tester.pumpAndSettle();
 
     await tester.tap(find.byTooltip('设置'));
@@ -92,7 +96,7 @@ void main() {
   testWidgets('Copies a valid backup to the clipboard', (
     WidgetTester tester,
   ) async {
-    await tester.pumpWidget(const DailyNotesApp());
+    await tester.pumpWidget(testApp);
     await tester.pumpAndSettle();
 
     await tester.tap(find.byTooltip('新建笔记'));
@@ -132,7 +136,7 @@ void main() {
     final source = const NoteBackupService().encode([note]);
     await Clipboard.setData(ClipboardData(text: source));
 
-    await tester.pumpWidget(const DailyNotesApp());
+    await tester.pumpWidget(testApp);
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('设置'));
     await tester.pumpAndSettle();
@@ -152,7 +156,7 @@ void main() {
   testWidgets('Confirms before discarding an unsaved note', (
     WidgetTester tester,
   ) async {
-    await tester.pumpWidget(const DailyNotesApp());
+    await tester.pumpWidget(testApp);
     await tester.pumpAndSettle();
 
     await tester.tap(find.byTooltip('新建笔记'));

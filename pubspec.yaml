@@ -53,9 +53,9 @@ dependencies:
   # 轻量级配置存储
   shared_preferences: any
 
-  # 本地数据库 (SQLite)
-  sqflite: ^2.4.2
-  path: any
+  # 跨平台本地数据库
+  hive_ce: ^2.19.3
+  hive_ce_flutter: ^2.3.4
 
   # 富文本编辑器 (暂时注释，后续添加)
   # flutter_quill: any
