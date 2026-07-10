@@ -98,6 +98,10 @@ void main() {
       find.byKey(const ValueKey('noteContentField')),
       '这是一条可以保存并显示在首页的笔记。',
     );
+    await tester.enterText(find.byKey(const ValueKey('noteTagField')), '工作');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    expect(find.text('#工作'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('saveNoteButton')));
     await tester.pumpAndSettle();
 
@@ -183,6 +187,16 @@ void main() {
     expect(find.text('全部 2'), findsOneWidget);
     expect(find.text('当前 1'), findsOneWidget);
     expect(find.text('已归档 1'), findsOneWidget);
+    expect(find.byKey(const ValueKey('historyTag-#工作')), findsOneWidget);
+    expect(find.byKey(const ValueKey('historyTag-#生活')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('historyTag-#工作')));
+    await tester.pumpAndSettle();
+    expect(find.text('当前项目'), findsOneWidget);
+    expect(find.text('归档生活记录'), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('historyTag-all')));
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text('已归档 1'));
     await tester.pumpAndSettle();

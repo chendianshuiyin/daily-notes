@@ -21,6 +21,7 @@ class _HistoryPageState extends State<HistoryPage> {
   final TextEditingController _searchController = TextEditingController();
   String _query = '';
   _HistoryFilter _filter = _HistoryFilter.all;
+  String? _selectedTag;
 
   @override
   void dispose() {
@@ -112,13 +113,26 @@ class _HistoryPageState extends State<HistoryPage> {
           }
 
           final searchedNotes = noteProvider.searchNotes(_query);
-          final notes = searchedNotes.where((note) {
+          final statusFilteredNotes = searchedNotes.where((note) {
             return switch (_filter) {
               _HistoryFilter.all => true,
               _HistoryFilter.active => !note.isArchived,
               _HistoryFilter.archived => note.isArchived,
             };
           }).toList();
+          final tagCounts = <String, int>{};
+          for (final note in statusFilteredNotes) {
+            for (final tag in note.tags) {
+              tagCounts.update(tag, (count) => count + 1, ifAbsent: () => 1);
+            }
+          }
+          final sortedTags = tagCounts.keys.toList()
+            ..sort((first, second) => first.compareTo(second));
+          final notes = _selectedTag == null
+              ? statusFilteredNotes
+              : statusFilteredNotes
+                    .where((note) => note.tags.contains(_selectedTag))
+                    .toList();
 
           return Align(
             alignment: Alignment.topCenter,
@@ -188,10 +202,19 @@ class _HistoryPageState extends State<HistoryPage> {
                     ),
                   ),
                   const SizedBox(height: 8),
+                  _TagArchiveBar(
+                    tags: sortedTags,
+                    counts: tagCounts,
+                    selectedTag: _selectedTag,
+                    onSelected: (tag) => setState(() => _selectedTag = tag),
+                  ),
+                  const SizedBox(height: 4),
                   Expanded(
                     child: notes.isEmpty
                         ? _HistoryEmptyState(
-                            isSearching: _query.trim().isNotEmpty,
+                            isSearching:
+                                _query.trim().isNotEmpty ||
+                                _selectedTag != null,
                           )
                         : RefreshIndicator(
                             onRefresh: noteProvider.loadNotes,
@@ -203,6 +226,9 @@ class _HistoryPageState extends State<HistoryPage> {
                                   note: note,
                                   onArchive: () => _archiveNote(note),
                                   onDelete: () => _deleteNote(note),
+                                  onTagSelected: (tag) {
+                                    setState(() => _selectedTag = tag);
+                                  },
                                 );
                               },
                               separatorBuilder: (context, index) =>
@@ -258,16 +284,70 @@ class _FilterChip extends StatelessWidget {
   }
 }
 
+class _TagArchiveBar extends StatelessWidget {
+  const _TagArchiveBar({
+    required this.tags,
+    required this.counts,
+    required this.selectedTag,
+    required this.onSelected,
+  });
+
+  final List<String> tags;
+  final Map<String, int> counts;
+  final String? selectedTag;
+  final ValueChanged<String?> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 42,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        children: [
+          Icon(
+            Icons.sell_outlined,
+            size: 18,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+          const SizedBox(width: 8),
+          ChoiceChip(
+            key: const ValueKey('historyTag-all'),
+            label: const Text('全部标签'),
+            selected: selectedTag == null,
+            onSelected: (_) => onSelected(null),
+          ),
+          for (final tag in tags) ...[
+            const SizedBox(width: 8),
+            ChoiceChip(
+              key: ValueKey('historyTag-$tag'),
+              label: Text('$tag ${counts[tag]}'),
+              selected: selectedTag == tag,
+              onSelected: (_) => onSelected(tag),
+            ),
+          ],
+          if (tags.isEmpty) ...[
+            const SizedBox(width: 8),
+            const Chip(label: Text('暂无 #标签')),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _HistoryNoteCard extends StatelessWidget {
   const _HistoryNoteCard({
     required this.note,
     required this.onArchive,
     required this.onDelete,
+    required this.onTagSelected,
   });
 
   final Note note;
   final VoidCallback onArchive;
   final VoidCallback onDelete;
+  final ValueChanged<String> onTagSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -329,7 +409,12 @@ class _HistoryNoteCard extends StatelessWidget {
                             runSpacing: 4,
                             children: note.tags
                                 .take(3)
-                                .map((tag) => _TagLabel(tag: tag))
+                                .map(
+                                  (tag) => _TagLabel(
+                                    tag: tag,
+                                    onPressed: () => onTagSelected(tag),
+                                  ),
+                                )
                                 .toList(),
                           ),
                         ),
@@ -400,23 +485,20 @@ class _DateBadge extends StatelessWidget {
 }
 
 class _TagLabel extends StatelessWidget {
-  const _TagLabel({required this.tag});
+  const _TagLabel({required this.tag, required this.onPressed});
 
   final String tag;
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(5),
-      ),
-      child: Text(
-        tag,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: Theme.of(context).colorScheme.primary,
-        ),
+    return ActionChip(
+      label: Text(tag),
+      onPressed: onPressed,
+      visualDensity: VisualDensity.compact,
+      padding: EdgeInsets.zero,
+      labelStyle: Theme.of(context).textTheme.labelSmall?.copyWith(
+        color: Theme.of(context).colorScheme.primary,
       ),
     );
   }

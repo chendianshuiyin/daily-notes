@@ -22,6 +22,7 @@ class EditorPage extends StatefulWidget {
 class _EditorPageState extends State<EditorPage> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _contentController = TextEditingController();
+  final TextEditingController _tagController = TextEditingController();
   final NoteImageService _imageService = const NoteImageService();
 
   bool _isLoading = false;
@@ -32,9 +33,11 @@ class _EditorPageState extends State<EditorPage> {
   bool _isPickingImages = false;
   Note? _currentNote;
   List<NoteImage> _images = [];
+  List<String> _tags = [];
   String _initialTitle = '';
   String _initialContent = '';
   String _initialImageIds = '';
+  String _initialTags = '';
 
   bool get _isNewNote => widget.noteId == null;
 
@@ -51,6 +54,7 @@ class _EditorPageState extends State<EditorPage> {
   void dispose() {
     _titleController.dispose();
     _contentController.dispose();
+    _tagController.dispose();
     super.dispose();
   }
 
@@ -90,7 +94,9 @@ class _EditorPageState extends State<EditorPage> {
     _initialTitle = note.title;
     _initialContent = note.content;
     _initialImageIds = _imageIds(note.images);
+    _initialTags = _tagIds(note.tags);
     _images = List.of(note.images);
+    _tags = List.of(note.tags);
     _titleController.text = note.title;
     _contentController.text = note.content;
     setState(() {
@@ -117,6 +123,7 @@ class _EditorPageState extends State<EditorPage> {
         title: title,
         content: content,
         images: _images,
+        tags: _tags,
       );
 
       if (!mounted) {
@@ -128,6 +135,7 @@ class _EditorPageState extends State<EditorPage> {
         _initialTitle = note.title;
         _initialContent = note.content;
         _initialImageIds = _imageIds(note.images);
+        _initialTags = _tagIds(note.tags);
         _isDirty = false;
         _isSaving = false;
       });
@@ -230,7 +238,8 @@ class _EditorPageState extends State<EditorPage> {
     final isDirty =
         _titleController.text.trim() != _initialTitle ||
         _contentController.text.trim() != _initialContent ||
-        _imageIds(_images) != _initialImageIds;
+        _imageIds(_images) != _initialImageIds ||
+        _tagIds(_tags) != _initialTags;
     if (_isDirty != isDirty) {
       setState(() => _isDirty = isDirty);
     }
@@ -238,6 +247,43 @@ class _EditorPageState extends State<EditorPage> {
 
   String _imageIds(Iterable<NoteImage> images) {
     return images.map((image) => image.id).join('|');
+  }
+
+  String _tagIds(Iterable<String> tags) {
+    return Note.normalizeTags(tags).join('|');
+  }
+
+  void _handleTagInput(String value) {
+    if (value.endsWith(' ') || value.endsWith(',') || value.endsWith('，')) {
+      _addTag(value);
+    }
+  }
+
+  void _addTag([String? value]) {
+    final normalized = Note.normalizeTags([value ?? _tagController.text]);
+    if (normalized.isEmpty) {
+      _tagController.clear();
+      return;
+    }
+    if (_tags.length >= 8) {
+      _showError('每条笔记最多添加 8 个标签');
+      return;
+    }
+    final tag = normalized.first;
+    if (_tags.any((item) => item.toLowerCase() == tag.toLowerCase())) {
+      _tagController.clear();
+      return;
+    }
+    setState(() {
+      _tags = [..._tags, tag];
+      _tagController.clear();
+    });
+    _updateDirtyState();
+  }
+
+  void _removeTag(String tag) {
+    setState(() => _tags = _tags.where((item) => item != tag).toList());
+    _updateDirtyState();
   }
 
   Future<void> _pickImages() async {
@@ -514,6 +560,14 @@ class _EditorPageState extends State<EditorPage> {
                                 ),
                               ),
                               const Divider(),
+                              _TagEditor(
+                                tags: _tags,
+                                controller: _tagController,
+                                onChanged: _handleTagInput,
+                                onSubmitted: _addTag,
+                                onRemove: _removeTag,
+                              ),
+                              const Divider(),
                               Expanded(
                                 child: TextField(
                                   key: const ValueKey('noteContentField'),
@@ -630,6 +684,74 @@ class _EditorPageState extends State<EditorPage> {
   String _editorDateLabel() {
     final date = _currentNote?.createdAt ?? DateTime.now();
     return '${date.year}年${date.month}月${date.day}日';
+  }
+}
+
+class _TagEditor extends StatelessWidget {
+  const _TagEditor({
+    required this.tags,
+    required this.controller,
+    required this.onChanged,
+    required this.onSubmitted,
+    required this.onRemove,
+  });
+
+  final List<String> tags;
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+  final ValueChanged<String> onSubmitted;
+  final ValueChanged<String> onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 48,
+      child: Row(
+        children: [
+          Icon(
+            Icons.tag,
+            size: 18,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: [
+                for (final tag in tags) ...[
+                  InputChip(
+                    key: ValueKey('editorTag-$tag'),
+                    label: Text(tag),
+                    onDeleted: () => onRemove(tag),
+                    deleteIcon: const Icon(Icons.close, size: 16),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  const SizedBox(width: 6),
+                ],
+                SizedBox(
+                  width: 150,
+                  child: TextField(
+                    key: const ValueKey('noteTagField'),
+                    controller: controller,
+                    onChanged: onChanged,
+                    onSubmitted: onSubmitted,
+                    textInputAction: TextInputAction.done,
+                    decoration: const InputDecoration(
+                      hintText: '添加 #标签',
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      filled: false,
+                      contentPadding: EdgeInsets.symmetric(vertical: 10),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

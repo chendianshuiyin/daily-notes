@@ -9,7 +9,8 @@ class Note {
     required this.updatedAt,
     this.isArchived = false,
     this.images = const [],
-  });
+    List<String> tags = const [],
+  }) : _tags = tags;
 
   final String id;
   final String title;
@@ -18,6 +19,7 @@ class Note {
   final DateTime updatedAt;
   final bool isArchived;
   final List<NoteImage> images;
+  final List<String> _tags;
 
   String get displayTitle {
     final value = title.trim();
@@ -35,11 +37,30 @@ class Note {
   bool get hasBody =>
       title.trim().isNotEmpty || content.trim().isNotEmpty || images.isNotEmpty;
 
-  List<String> get tags {
-    final matches = RegExp(
-      r'#[^\s#，。,.!?！？；;：:]+',
-    ).allMatches('$title $content');
-    return matches.map((match) => match.group(0)!).toSet().toList();
+  List<String> get tags =>
+      normalizeTags([..._tags, ...extractTags('$title $content')]);
+
+  static List<String> extractTags(String source) {
+    final matches = RegExp(r'#[^\s#，。,.!?！？；;：:]+').allMatches(source);
+    return matches.map((match) => match.group(0)!).toList();
+  }
+
+  static List<String> normalizeTags(Iterable<String> values) {
+    final normalized = <String>[];
+    final seen = <String>{};
+    for (final value in values) {
+      final withoutMarker = value.trim().replaceFirst(RegExp(r'^#+'), '');
+      final name = withoutMarker.replaceAll(RegExp(r'[\s#，。,.!?！？；;：:]+'), '');
+      if (name.isEmpty) {
+        continue;
+      }
+      final tag = '#$name';
+      final key = tag.toLowerCase();
+      if (seen.add(key)) {
+        normalized.add(tag);
+      }
+    }
+    return List.unmodifiable(normalized);
   }
 
   Note copyWith({
@@ -50,6 +71,7 @@ class Note {
     DateTime? updatedAt,
     bool? isArchived,
     List<NoteImage>? images,
+    List<String>? tags,
   }) {
     return Note(
       id: id ?? this.id,
@@ -59,6 +81,7 @@ class Note {
       updatedAt: updatedAt ?? this.updatedAt,
       isArchived: isArchived ?? this.isArchived,
       images: images ?? this.images,
+      tags: tags ?? _tags,
     );
   }
 
@@ -71,6 +94,7 @@ class Note {
       'updatedAt': updatedAt.toIso8601String(),
       'isArchived': isArchived,
       'images': images.map((image) => image.toJson()).toList(),
+      'tags': tags,
     };
   }
 
@@ -83,6 +107,7 @@ class Note {
       updatedAt: _readDate(json['updatedAt']),
       isArchived: json['isArchived'] as bool? ?? false,
       images: _readImages(json['images']),
+      tags: _readTags(json['tags']),
     );
   }
 
@@ -110,5 +135,12 @@ class Note {
       }
     }
     return List.unmodifiable(images);
+  }
+
+  static List<String> _readTags(Object? value) {
+    if (value is! List) {
+      return const [];
+    }
+    return normalizeTags(value.whereType<String>());
   }
 }

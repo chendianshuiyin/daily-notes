@@ -113,7 +113,8 @@ class NoteProvider extends ChangeNotifier {
 
     return notes.where((note) {
       return note.title.toLowerCase().contains(normalized) ||
-          note.content.toLowerCase().contains(normalized);
+          note.content.toLowerCase().contains(normalized) ||
+          note.tags.any((tag) => tag.toLowerCase().contains(normalized));
     }).toList();
   }
 
@@ -122,6 +123,7 @@ class NoteProvider extends ChangeNotifier {
     required String title,
     required String content,
     List<NoteImage>? images,
+    List<String>? tags,
   }) async {
     final now = DateTime.now();
     final existing = id == null ? null : await ensureNoteById(id);
@@ -133,6 +135,7 @@ class NoteProvider extends ChangeNotifier {
       updatedAt: now,
       isArchived: existing?.isArchived ?? false,
       images: images ?? existing?.images ?? const [],
+      tags: tags ?? existing?.tags ?? const [],
     );
 
     await _repository.upsertNote(note);
