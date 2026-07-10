@@ -2,7 +2,7 @@
 
 ## Current Status
 
-Daily Notes v1.1.0 is the current release candidate for Android, Windows, Linux, and Web. Core local-first note workflows are complete, including text and image notes, responsive activity history, dedicated tags, archive filters, backup/restore, and short voice dictation on Android, Web, and Windows.
+Daily Notes v1.1.0 is published for Android, Windows, Linux, and Web. Core local-first note workflows are complete, including text and image notes, responsive activity history, dedicated tags, archive filters, backup/restore, and short voice dictation on Android, Web, and Windows.
 
 ## Completed Evidence
 
@@ -20,6 +20,7 @@ Daily Notes v1.1.0 is the current release candidate for Android, Windows, Linux,
 | --- | ---: | --- |
 | `daily-notes-v1.1.0-android-release.apk` | 53,745,548 bytes | `84B44433730255623F48B85FE7F3BEDB8C2A2DBECBEBDE5C30E7029CE806B5B5` |
 | `daily-notes-v1.1.0-windows-x64.zip` | 12,412,484 bytes | `E778A3441B9948B7990B27D004DD09E859C6353144C3CF2CCB88E06638ACC9D4` |
+| `daily-notes-v1.1.0-linux-x64.zip` | 11,001,268 bytes | `BB3C55A16BD72CDAB8879B396BD6A18ECE742AAB5C7315125416B52A0C80165D` |
 | `daily-notes-v1.1.0-web.zip` | 11,048,399 bytes | `F415C0DDC179F47C41335D5F10AF4C23D62DBC6C369DC3EA5F0220A6AC34115F` |
 
 ## Android Verification
@@ -28,7 +29,6 @@ The final signed APK upgraded over v1.0.3 and preserved the existing image note.
 
 ## Remaining Operational Work
 
-- Publish the v1.1.0 GitHub Release and attach the Linux Actions artifact.
 - Run the published APK on a physical Android phone when one is connected.
 - Keep the private release keystore and `android/key.properties` backed up securely outside Git.
 

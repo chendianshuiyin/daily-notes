@@ -19,7 +19,7 @@ Daily Notes v1.1.0 adds structured `#tags` and short voice dictation to the exis
 - `flutter test`: passed, 23 tests.
 - Android, Web, and Windows release builds: passed locally.
 - Android 36 emulator: upgrade install, existing image note retention, tag editing/filtering, microphone permission, and no-speech feedback passed.
-- Linux x64 is built by GitHub Actions; voice input is disabled on Linux.
+- Linux x64 build and asset upload passed in GitHub Actions run `29111879692`; voice input is disabled on Linux.
 
 ## Release Assets
 
@@ -30,7 +30,7 @@ Daily Notes v1.1.0 adds structured `#tags` and short voice dictation to the exis
 - `daily-notes-v1.1.0-web.zip`
   - SHA-256: `F415C0DDC179F47C41335D5F10AF4C23D62DBC6C369DC3EA5F0220A6AC34115F`
 - `daily-notes-v1.1.0-linux-x64.zip`
-  - Built by GitHub Actions with an accompanying `.sha256` file.
+  - SHA-256: `BB3C55A16BD72CDAB8879B396BD6A18ECE742AAB5C7315125416B52A0C80165D`
 
 ## Android Details
 

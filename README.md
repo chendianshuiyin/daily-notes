@@ -43,6 +43,7 @@ Android 安装：下载 APK 后允许浏览器或文件管理器“安装未知�
 | --- | --- |
 | `daily-notes-v1.1.0-android-release.apk` | `84B44433730255623F48B85FE7F3BEDB8C2A2DBECBEBDE5C30E7029CE806B5B5` |
 | `daily-notes-v1.1.0-windows-x64.zip` | `E778A3441B9948B7990B27D004DD09E859C6353144C3CF2CCB88E06638ACC9D4` |
+| `daily-notes-v1.1.0-linux-x64.zip` | `BB3C55A16BD72CDAB8879B396BD6A18ECE742AAB5C7315125416B52A0C80165D` |
 | `daily-notes-v1.1.0-web.zip` | `F415C0DDC179F47C41335D5F10AF4C23D62DBC6C369DC3EA5F0220A6AC34115F` |
 
 发布门禁：`flutter analyze` 无问题，23 项 unit/widget tests 通过，Android/Web/Windows release 构建通过；Linux x64 由 GitHub Actions 构建。Android 36 模拟器已验证升级安装、标签保存筛选、录音权限、无语音反馈和旧数据保留。

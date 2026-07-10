@@ -12,9 +12,8 @@ Release URL: https://github.com/chendianshuiyin/daily-notes/releases/tag/v1.1.0
 | --- | ---: | --- |
 | `daily-notes-v1.1.0-android-release.apk` | 53,745,548 bytes | `84B44433730255623F48B85FE7F3BEDB8C2A2DBECBEBDE5C30E7029CE806B5B5` |
 | `daily-notes-v1.1.0-windows-x64.zip` | 12,412,484 bytes | `E778A3441B9948B7990B27D004DD09E859C6353144C3CF2CCB88E06638ACC9D4` |
+| `daily-notes-v1.1.0-linux-x64.zip` | 11,001,268 bytes | `BB3C55A16BD72CDAB8879B396BD6A18ECE742AAB5C7315125416B52A0C80165D` |
 | `daily-notes-v1.1.0-web.zip` | 11,048,399 bytes | `F415C0DDC179F47C41335D5F10AF4C23D62DBC6C369DC3EA5F0220A6AC34115F` |
-
-Linux x64 asset size and checksum are appended after the tagged GitHub Actions build completes.
 
 ## Android Evidence
 
@@ -34,7 +33,8 @@ The final APK passed `adb install -r` over v1.0.3 and retained the existing imag
 - Android, Web, and Windows release builds: passed locally after the final tag-chip visual fix.
 - The Web release rendered Home and Editor without console errors; the Windows release executable launched and remained responsive.
 - `apksigner verify --print-certs` and `aapt dump badging`: passed.
-- Linux release build and publication are performed by GitHub Actions from tag `v1.1.0`.
+- Linux release build and publication passed in GitHub Actions run `29111879692`.
+- The downloaded Linux ZIP matched both GitHub's asset digest and its `.sha256` sidecar.
 
 ## Data Compatibility
 

@@ -416,3 +416,21 @@
 - Android: 53,745,548 bytes, SHA-256 `84B44433730255623F48B85FE7F3BEDB8C2A2DBECBEBDE5C30E7029CE806B5B5`.
 - Windows: 12,412,484 bytes, SHA-256 `E778A3441B9948B7990B27D004DD09E859C6353144C3CF2CCB88E06638ACC9D4`.
 - Web: 11,048,399 bytes, SHA-256 `F415C0DDC179F47C41335D5F10AF4C23D62DBC6C369DC3EA5F0220A6AC34115F`.
+
+## 2026-07-11 Version 1.1.0 publication
+
+### Completed
+
+- Committed release preparation as `9721c69 chore: prepare v1.1.0 release` and pushed `main`.
+- Created and pushed annotated tag `v1.1.0`.
+- Published GitHub Release `Daily Notes v1.1.0` with Android, Windows, and Web assets.
+- Ran GitHub Actions workflow `29111879692`; Linux x64 built and uploaded successfully.
+- Downloaded the Linux ZIP and checksum sidecar for independent verification.
+- Confirmed all five GitHub assets are uploaded and their digests match the final packages.
+
+### Verification
+
+- Release URL: `https://github.com/chendianshuiyin/daily-notes/releases/tag/v1.1.0`.
+- Linux asset: 11,001,268 bytes, SHA-256 `BB3C55A16BD72CDAB8879B396BD6A18ECE742AAB5C7315125416B52A0C80165D`.
+- Linux `.sha256` sidecar contains the same digest.
+- GitHub asset digests match local Android, Windows, Web, and downloaded Linux SHA-256 values.
