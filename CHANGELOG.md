@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.0.3 - 2026-07-10
+
+### Added
+
+- GitHub-style activity heatmap with responsive 16, 28, and 52 week views.
+- Up to four compressed image attachments per note with preview and removal.
+- JSON backup and merge restore from the system clipboard.
+- History filters, tag extraction, image thumbnails, and persistent search.
+
+### Changed
+
+- Migrated note storage to Hive CE with one-time `SharedPreferences` migration.
+- Redesigned Home, Editor, History, and Settings for compact light and dark layouts.
+- Replaced runtime Google Fonts with platform fonts for immediate offline rendering.
+- Bumped app version to `1.0.3+4`.
+
+### Verified
+
+- `flutter analyze` and 21 unit/widget tests
+- Android, Web, and Windows release builds
+- Android image picking, save, cold restart persistence, and responsive visual checks
+
 ## 1.0.2 - 2026-07-10
 
 ### Added

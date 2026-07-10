@@ -342,3 +342,42 @@
 - Confirmed the active release and maintenance scope as Android, Windows, Linux, and Web.
 - Deferred iOS and macOS work; no Apple platform source or workflow changes were made.
 - Kept physical Android phone installation as the only outstanding hardware verification.
+
+## 2026-07-10 v1.0.3 product completion
+
+### Completed
+
+- Added JSON backup and merge restore in commit `f8a2380`.
+- Migrated production storage to Hive CE with one-time legacy migration in commit `b169db9`.
+- Added compressed image attachments, thumbnails, preview, and backup compatibility in commit `b0ca488`.
+- Added a responsive GitHub-style activity heatmap and daily detail selection in commit `2a3feca`.
+- Modernized Home, Editor, History, Settings, light/dark themes, search filters, and tags in commit `1e813ea`.
+- Removed runtime Google Fonts so all text renders immediately without a network connection.
+
+### Verification
+
+- `flutter analyze`: passed with no issues.
+- `flutter test`: passed, 21 tests.
+- Android, Web, and Windows release builds passed before release preparation.
+- Android 36 emulator verified image selection, compression display, save, Hive persistence after cold restart, responsive heatmap, history filters, and light/dark layouts.
+- Final release packaging and published asset checksums are recorded in the v1.0.3 release report.
+
+## 2026-07-11 Version 1.0.3 release preparation
+
+### Completed
+
+- Bumped the app to `1.0.3+4` and updated Settings, release scripts, and the Linux workflow default.
+- Replaced runtime Google Fonts with native platform fonts; the final APK rendered all text 1.5 seconds after a cold launch without network access.
+- Made widget tests independent of wall-clock dates and isolated UI state with an in-memory repository.
+- Added final Android screenshots for Home, Editor, History, and Settings to `docs/pictures/`.
+- Built, signed, packaged, and hashed Android, Windows, and Web release assets.
+
+### Verification
+
+- `flutter analyze`: passed with no issues.
+- `flutter test`: 21 tests passed in two consecutive full-suite runs.
+- APK metadata: package `com.chendianshuiyin.dailynotes`, version `1.0.3` (`versionCode=4`), min SDK `24`, target SDK `36`.
+- Final APK upgrade install retained the existing image note on `Medium_Phone_API_36.1`.
+- Android SHA-256: `D38AF67E1C2B325A1542584DB85A11C2C1D709036E24FF938E7209BD4E9E51B9`.
+- Windows SHA-256: `EF159C3791382D3FE882046507035164B02609C797BAF97E155818B9199CBC30`.
+- Web SHA-256: `49A47E85BF6499EEEDBB053EA23A9C401943881DAFDAFA5CEF1FD5B238F1901D`.

@@ -2,34 +2,34 @@
 
 ## Current Status
 
-Daily Notes v1.0.2 is published as a usable local-first release. Android, Windows, Linux, and Web packages are available from GitHub. The signed Android APK passed upgrade installation, cold launch, note creation, save, and restart persistence checks on Android 36 emulator `Medium_Phone_API_36.1`.
-
-Release URL: https://github.com/chendianshuiyin/daily-notes/releases/tag/v1.0.2
+Daily Notes v1.0.3 is the current release candidate for Android, Windows, Linux, and Web. Core functionality, modern responsive layouts, local persistence, backup/restore, and image attachments are complete. Local release assets for Android, Windows, and Web have passed build and checksum verification; Linux is produced on GitHub Actions after tagging.
 
 ## Completed Evidence
 
-- Core note workflow: create, edit, list, search, archive, and delete.
-- Local note and theme persistence through `SharedPreferences`.
-- Unsaved-draft confirmation and visible persistence failure handling.
-- Branded application icons and normalized platform metadata.
-- Android release signing with package `com.chendianshuiyin.dailynotes`.
-- Six passing unit/widget tests plus analyzer and release build gates.
-- Published Android, Windows, Web, and GitHub Actions-built Linux assets.
+- Hive CE note storage with one-time migration from the v1.0.2 `SharedPreferences` format.
+- Text and compressed image notes, full-screen preview, history thumbnails, tags, archive, and delete.
+- Responsive 16/28/52 week activity heatmap with per-day note selection.
+- JSON backup and merge restore, including image data.
+- Immediate offline typography, light/dark themes, unsaved-draft protection, and visible persistence errors.
+- Signed Android package `com.chendianshuiyin.dailynotes`, version `1.0.3` (`versionCode=4`).
+- 21 passing unit/widget tests, analyzer gate, and Android/Web/Windows release builds.
 
-## Published Packages
+## Local Packages
 
 | Asset | Size | SHA-256 |
 | --- | ---: | --- |
-| `daily-notes-v1.0.2-android-release.apk` | 49,402,296 bytes | `97098D8C5476F46F2064E98A6137A25DB47FA904171CD2C6E0E61C2D4011F047` |
-| `daily-notes-v1.0.2-windows-x64.zip` | 11,861,254 bytes | `1A29E0BA43F213495568C8B25DD7D3390EF94E77DBE37CB60493E64EBF45E11B` |
-| `daily-notes-v1.0.2-linux-x64.zip` | 10,399,939 bytes | `ED8660A4ABBF29E6EAC3F6974397D0F942DACEA3D5D3F87281DEEA9893AF29C5` |
-| `daily-notes-v1.0.2-web.zip` | 10,857,015 bytes | `92FC877A5C231DC3773B1DAA8BA836E775C2A8AED1A5D2588DE2415247AB0176` |
+| `daily-notes-v1.0.3-android-release.apk` | 53,679,352 bytes | `D38AF67E1C2B325A1542584DB85A11C2C1D709036E24FF938E7209BD4E9E51B9` |
+| `daily-notes-v1.0.3-windows-x64.zip` | 12,334,289 bytes | `EF159C3791382D3FE882046507035164B02609C797BAF97E155818B9199CBC30` |
+| `daily-notes-v1.0.3-web.zip` | 11,040,718 bytes | `49A47E85BF6499EEEDBB053EA23A9C401943881DAFDAFA5CEF1FD5B238F1901D` |
 
-GitHub reports all assets as uploaded. Downloaded Android and Linux assets were independently hashed and matched the published digests.
+## Android Verification
+
+The final signed APK upgraded over the previous emulator installation and preserved its image note. Android 36 AVD `Medium_Phone_API_36.1` verified the native image picker, compressed attachment display, save, forced-stop relaunch, Hive persistence, heatmap counts, history filters, and light/dark themes. APK signature and package metadata checks passed.
 
 ## Remaining Operational Work
 
-- Run the published APK on a physical Android phone when one is connected; current installation/use evidence is from an Android emulator.
-- Back up the release keystore and `android/key.properties` securely outside Git.
+- Publish the v1.0.3 GitHub Release and attach the Linux Actions artifact.
+- Run the published APK on a physical Android phone when one is connected.
+- Keep the private release keystore and `android/key.properties` backed up securely outside Git.
 
-The current release and maintenance scope is Android, Windows, Linux, and Web. iOS and macOS are deferred.
+iOS and macOS remain outside the active release scope.

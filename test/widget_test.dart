@@ -4,16 +4,25 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:daily_notes/main.dart';
 import 'package:daily_notes/data/models/models.dart';
-import 'package:daily_notes/data/repositories/repositories.dart';
 import 'package:daily_notes/data/services/services.dart';
 import 'package:daily_notes/domain/repositories/repositories.dart';
 
+Future<void> pumpUntilFound(WidgetTester tester, Finder finder) async {
+  for (var attempt = 0; attempt < 40; attempt++) {
+    if (finder.evaluate().isNotEmpty) {
+      return;
+    }
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+}
+
 void main() {
-  const testRepository = SharedPreferencesNoteRepository();
-  const testApp = DailyNotesApp(noteRepository: testRepository);
+  final testRepository = _MemoryNoteRepository();
+  final testApp = DailyNotesApp(noteRepository: testRepository);
   String clipboardText = '';
 
   setUp(() {
+    testRepository.clear();
     SharedPreferences.setMockInitialValues({});
     clipboardText = '';
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -98,7 +107,7 @@ void main() {
   testWidgets('Displays and removes an existing image attachment', (
     WidgetTester tester,
   ) async {
-    final date = DateTime.utc(2026, 7, 10);
+    final date = DateTime.now();
     await testRepository.upsertNote(
       Note(
         id: 'image-note',
@@ -120,6 +129,7 @@ void main() {
 
     await tester.pumpWidget(testApp);
     await tester.pumpAndSettle();
+    await pumpUntilFound(tester, find.text('图文笔记'));
     expect(find.text('图文笔记'), findsWidgets);
 
     await tester.tap(find.text('图文笔记').first);
@@ -247,12 +257,13 @@ void main() {
   testWidgets('Restores a backup from the clipboard', (
     WidgetTester tester,
   ) async {
+    final now = DateTime.now();
     final note = Note(
       id: 'restore-note',
       title: '从备份恢复的笔记',
       content: '恢复后的正文',
-      createdAt: DateTime.utc(2026, 7, 10, 8),
-      updatedAt: DateTime.utc(2026, 7, 10, 9),
+      createdAt: now,
+      updatedAt: now,
     );
     final source = const NoteBackupService().encode([note]);
     await Clipboard.setData(ClipboardData(text: source));
@@ -271,6 +282,7 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.arrow_back));
     await tester.pumpAndSettle();
+    await pumpUntilFound(tester, find.text('从备份恢复的笔记'));
     expect(find.text('从备份恢复的笔记'), findsWidgets);
   });
 
@@ -324,6 +336,62 @@ void main() {
     expect(find.byKey(const ValueKey('noteTitleField')), findsOneWidget);
     expect(find.text('不要丢失这条草稿'), findsOneWidget);
   });
+}
+
+class _MemoryNoteRepository implements NoteRepository {
+  final List<Note> _notes = [];
+
+  void clear() => _notes.clear();
+
+  @override
+  Future<List<Note>> getNotes() async {
+    return List.of(_notes)
+      ..sort((first, second) => second.updatedAt.compareTo(first.updatedAt));
+  }
+
+  @override
+  Future<Note?> getNoteById(String id) async {
+    for (final note in _notes) {
+      if (note.id == id) {
+        return note;
+      }
+    }
+    return null;
+  }
+
+  @override
+  Future<void> upsertNote(Note note) async {
+    final index = _notes.indexWhere((item) => item.id == note.id);
+    if (index == -1) {
+      _notes.add(note);
+    } else {
+      _notes[index] = note;
+    }
+  }
+
+  @override
+  Future<void> deleteNote(String id) async {
+    _notes.removeWhere((note) => note.id == id);
+  }
+
+  @override
+  Future<void> archiveNote(String id, {required bool isArchived}) async {
+    final index = _notes.indexWhere((note) => note.id == id);
+    if (index == -1) {
+      return;
+    }
+    _notes[index] = _notes[index].copyWith(
+      isArchived: isArchived,
+      updatedAt: DateTime.now(),
+    );
+  }
+
+  @override
+  Future<void> mergeNotes(List<Note> notes) async {
+    for (final note in notes) {
+      await upsertNote(note);
+    }
+  }
 }
 
 class _FailingNoteRepository implements NoteRepository {

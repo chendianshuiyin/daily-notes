@@ -1,7 +1,7 @@
 param(
-    [string]$Tag = "v1.0.2",
-    [string]$Title = "Daily Notes v1.0.2",
-    [string]$NotesFile = "docs/github_release_v1.0.2.md"
+    [string]$Tag = "v1.0.3",
+    [string]$Title = "Daily Notes v1.0.3",
+    [string]$NotesFile = "docs/github_release_v1.0.3.md"
 )
 
 $ErrorActionPreference = "Stop"
