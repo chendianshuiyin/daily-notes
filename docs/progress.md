@@ -381,3 +381,38 @@
 - Android SHA-256: `D38AF67E1C2B325A1542584DB85A11C2C1D709036E24FF938E7209BD4E9E51B9`.
 - Windows SHA-256: `EF159C3791382D3FE882046507035164B02609C797BAF97E155818B9199CBC30`.
 - Web SHA-256: `49A47E85BF6499EEEDBB053EA23A9C401943881DAFDAFA5CEF1FD5B238F1901D`.
+
+## 2026-07-11 Tag organization and voice dictation
+
+### Completed
+
+- Removed the redundant activity heatmap title in commit `f7eec7f`.
+- Added dedicated and inline hashtag persistence, search, tag counts, and archive filtering in commit `5efe39f`.
+- Added short voice dictation for Android, Web, and Windows in commit `d83e898`.
+- Configured Android recording permission and speech recognition service discovery.
+- Verified tag entry, save, history filtering, microphone permission, and no-speech feedback on Android 36.
+- Found and fixed low-contrast tag labels in both history filters and editor chips during screenshot review.
+
+### Verification
+
+- `flutter analyze`: passed with no issues.
+- `flutter test`: 23 tests passed.
+- Android, Web, and Windows release builds passed with `speech_to_text 7.4.0`.
+- Android editor exposes image, time, voice, character count, and save controls without overflow at 1080x2400.
+- The Web release rendered Home and Editor without console errors; the Windows executable launched and remained responsive.
+
+## 2026-07-11 Version 1.1.0 release preparation
+
+### Completed
+
+- Bumped the app to `1.1.0+5` and updated Settings, release scripts, and the Linux workflow default.
+- Rebuilt and packaged signed Android, Windows, and Web release assets after the final visual fix.
+- Verified APK signature, package metadata, upgrade installation, and retained v1.0.3 data.
+- Added v1.1.0 Home, Editor, History, and Settings screenshots to `docs/pictures/`.
+- Updated README, CHANGELOG, GitHub release notes, release status, and final release report.
+
+### Local Release Assets
+
+- Android: 53,745,548 bytes, SHA-256 `84B44433730255623F48B85FE7F3BEDB8C2A2DBECBEBDE5C30E7029CE806B5B5`.
+- Windows: 12,412,484 bytes, SHA-256 `E778A3441B9948B7990B27D004DD09E859C6353144C3CF2CCB88E06638ACC9D4`.
+- Web: 11,048,399 bytes, SHA-256 `F415C0DDC179F47C41335D5F10AF4C23D62DBC6C369DC3EA5F0220A6AC34115F`.

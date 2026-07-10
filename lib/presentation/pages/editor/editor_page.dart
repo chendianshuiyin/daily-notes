@@ -840,6 +840,7 @@ class _TagEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return SizedBox(
       height: 48,
       child: Row(
@@ -858,8 +859,16 @@ class _TagEditor extends StatelessWidget {
                   InputChip(
                     key: ValueKey('editorTag-$tag'),
                     label: Text(tag),
+                    labelStyle: Theme.of(context).textTheme.labelLarge
+                        ?.copyWith(color: colorScheme.onSurface),
+                    backgroundColor: colorScheme.surfaceContainerLow,
+                    side: BorderSide(color: colorScheme.outlineVariant),
                     onDeleted: () => onRemove(tag),
-                    deleteIcon: const Icon(Icons.close, size: 16),
+                    deleteIcon: Icon(
+                      Icons.close,
+                      size: 16,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
                     visualDensity: VisualDensity.compact,
                   ),
                   const SizedBox(width: 6),

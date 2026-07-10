@@ -104,6 +104,13 @@ void main() {
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pumpAndSettle();
     expect(find.text('#工作'), findsOneWidget);
+    final editorTagChip = tester.widget<InputChip>(
+      find.byKey(const ValueKey('editorTag-#工作')),
+    );
+    final editorColorScheme = Theme.of(
+      tester.element(find.byKey(const ValueKey('editorTag-#工作'))),
+    ).colorScheme;
+    expect(editorTagChip.labelStyle?.color, editorColorScheme.onSurface);
     await tester.tap(find.byKey(const ValueKey('saveNoteButton')));
     await tester.pumpAndSettle();
 

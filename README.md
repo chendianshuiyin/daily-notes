@@ -1,33 +1,35 @@
 # Daily Notes
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter)](https://flutter.dev/)
-[![Release](https://img.shields.io/github/v/release/chendianshuiyin/daily-notes)](https://github.com/chendianshuiyin/daily-notes/releases/tag/v1.0.3)
+[![Release](https://img.shields.io/github/v/release/chendianshuiyin/daily-notes)](https://github.com/chendianshuiyin/daily-notes/releases/tag/v1.1.0)
 [![Platform](https://img.shields.io/badge/platform-Android%20%7C%20Windows%20%7C%20Linux%20%7C%20Web-blue)](#下载)
 
-Daily Notes 是一个现代、轻量、本地优先的 Flutter 日记应用。它把文字、图片、写作热力图、搜索归档和 JSON 备份整合在同一套离线工作流中，适合日常记录、灵感收集和连续写作回顾。
+Daily Notes 是一个现代、轻量、本地优先的 Flutter 日记应用。它把文字、图片、语音听写、`#标签`、写作热力图和 JSON 备份整合在同一套本地工作流中，适合日常记录、灵感收集和连续写作回顾。
 
 ## 应用预览
 
 | 首页与热力图 | 图文编辑器 |
 | --- | --- |
-| ![Daily Notes 首页](docs/pictures/android-v1.0.3-home.png) | ![Daily Notes 图文编辑器](docs/pictures/android-v1.0.3-editor.png) |
+| ![Daily Notes 首页](docs/pictures/android-v1.1.0-home.png) | ![Daily Notes 图文标签编辑器](docs/pictures/android-v1.1.0-editor.png) |
 | 历史搜索与筛选 | 设置与数据管理 |
-| ![Daily Notes 历史页](docs/pictures/android-v1.0.3-history.png) | ![Daily Notes 设置页](docs/pictures/android-v1.0.3-settings.png) |
+| ![Daily Notes 历史页](docs/pictures/android-v1.1.0-history.png) | ![Daily Notes 设置页](docs/pictures/android-v1.1.0-settings.png) |
 
 ## 下载
 
-最新版本：[`v1.0.3`](https://github.com/chendianshuiyin/daily-notes/releases/tag/v1.0.3)
+最新版本：[`v1.1.0`](https://github.com/chendianshuiyin/daily-notes/releases/tag/v1.1.0)
 
-- Android: [`daily-notes-v1.0.3-android-release.apk`](https://github.com/chendianshuiyin/daily-notes/releases/download/v1.0.3/daily-notes-v1.0.3-android-release.apk)
-- Windows: [`daily-notes-v1.0.3-windows-x64.zip`](https://github.com/chendianshuiyin/daily-notes/releases/download/v1.0.3/daily-notes-v1.0.3-windows-x64.zip)
-- Linux: [`daily-notes-v1.0.3-linux-x64.zip`](https://github.com/chendianshuiyin/daily-notes/releases/download/v1.0.3/daily-notes-v1.0.3-linux-x64.zip)
-- Web 静态包: [`daily-notes-v1.0.3-web.zip`](https://github.com/chendianshuiyin/daily-notes/releases/download/v1.0.3/daily-notes-v1.0.3-web.zip)
+- Android: [`daily-notes-v1.1.0-android-release.apk`](https://github.com/chendianshuiyin/daily-notes/releases/download/v1.1.0/daily-notes-v1.1.0-android-release.apk)
+- Windows: [`daily-notes-v1.1.0-windows-x64.zip`](https://github.com/chendianshuiyin/daily-notes/releases/download/v1.1.0/daily-notes-v1.1.0-windows-x64.zip)
+- Linux: [`daily-notes-v1.1.0-linux-x64.zip`](https://github.com/chendianshuiyin/daily-notes/releases/download/v1.1.0/daily-notes-v1.1.0-linux-x64.zip)
+- Web 静态包: [`daily-notes-v1.1.0-web.zip`](https://github.com/chendianshuiyin/daily-notes/releases/download/v1.1.0/daily-notes-v1.1.0-web.zip)
 
 Android 安装：下载 APK 后允许浏览器或文件管理器“安装未知来源应用”，再按系统提示安装。包名为 `com.chendianshuiyin.dailynotes`。
 
 ## 核心功能
 
 - 新建、编辑、保存、归档和删除笔记，离开未保存内容前主动确认。
+- 为笔记添加最多 8 个 `#标签`，同时识别正文内的 hashtag，并按标签统计、搜索和筛选。
+- Android、Web 和 Windows 编辑器支持短语音听写，含录音权限和错误反馈。
 - 每条笔记最多添加 4 张图片；选择后自动缩放压缩，支持缩略图、预览和移除。
 - GitHub 风格写作热力图，按窗口宽度显示最近 16、28 或 52 周，并查看指定日期记录。
 - 历史页搜索标题、正文和 `#标签`，筛选当前或已归档笔记。
@@ -39,11 +41,11 @@ Android 安装：下载 APK 后允许浏览器或文件管理器“安装未知�
 
 | 资产 | SHA-256 |
 | --- | --- |
-| `daily-notes-v1.0.3-android-release.apk` | `D38AF67E1C2B325A1542584DB85A11C2C1D709036E24FF938E7209BD4E9E51B9` |
-| `daily-notes-v1.0.3-windows-x64.zip` | `EF159C3791382D3FE882046507035164B02609C797BAF97E155818B9199CBC30` |
-| `daily-notes-v1.0.3-web.zip` | `49A47E85BF6499EEEDBB053EA23A9C401943881DAFDAFA5CEF1FD5B238F1901D` |
+| `daily-notes-v1.1.0-android-release.apk` | `84B44433730255623F48B85FE7F3BEDB8C2A2DBECBEBDE5C30E7029CE806B5B5` |
+| `daily-notes-v1.1.0-windows-x64.zip` | `E778A3441B9948B7990B27D004DD09E859C6353144C3CF2CCB88E06638ACC9D4` |
+| `daily-notes-v1.1.0-web.zip` | `F415C0DDC179F47C41335D5F10AF4C23D62DBC6C369DC3EA5F0220A6AC34115F` |
 
-发布门禁：`flutter analyze` 无问题，21 项 unit/widget tests 连续运行通过，Android/Web/Windows release 构建通过；Linux x64 由 GitHub Actions 构建。Android 36 模拟器已验证升级安装、图片选择、保存、冷启动持久化和浅深色界面。
+发布门禁：`flutter analyze` 无问题，23 项 unit/widget tests 通过，Android/Web/Windows release 构建通过；Linux x64 由 GitHub Actions 构建。Android 36 模拟器已验证升级安装、标签保存筛选、录音权限、无语音反馈和旧数据保留。
 
 ## 开发
 
@@ -58,11 +60,11 @@ flutter run -d windows
 
 ## 发布资料
 
-- [v1.0.3 发布说明](docs/github_release_v1.0.3.md)
+- [v1.1.0 发布说明](docs/github_release_v1.1.0.md)
 - [发布状态报告](docs/release_status_report.md)
-- [v1.0.3 最终发布报告](docs/final_release_report_v1.0.3.md)
+- [v1.1.0 最终发布报告](docs/final_release_report_v1.1.0.md)
 - [变更日志](CHANGELOG.md)
 
 ## 当前范围
 
-当前维护和发布 Android、Windows、Linux 与 Web；iOS/macOS 暂不纳入本轮。数据默认仅存储在当前设备，不包含云同步。实体 Android 手机安装仍待连接设备后补充，模拟器安装与完整使用流程已通过。
+当前维护和发布 Android、Windows、Linux 与 Web；iOS/macOS 暂不纳入本轮。Linux 版不提供语音输入，其余笔记功能保持一致。数据默认仅存储在当前设备，不包含云同步。实体 Android 手机安装仍待连接设备后补充，模拟器安装与完整使用流程已通过。

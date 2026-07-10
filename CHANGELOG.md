@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.1.0 - 2026-07-11
+
+### Added
+
+- Dedicated `#tag` editing with inline hashtag extraction and backup compatibility.
+- Tag counts and one-tap tag filtering across current and archived notes.
+- Short voice dictation in the note editor on Android, Web, and Windows.
+
+### Changed
+
+- Simplified the activity heatmap header and kept its date range on one line.
+- Made tag filter colors explicit for reliable light and dark rendering.
+- Bumped app version to `1.1.0+5`.
+
+### Verified
+
+- `flutter analyze` and 23 unit/widget tests
+- Android voice permission, unavailable/no-speech feedback, tag save, and tag filtering
+- Android, Web, and Windows release builds
+
 ## 1.0.3 - 2026-07-10
 
 ### Added
