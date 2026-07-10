@@ -1,13 +1,35 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:daily_notes/main.dart';
 import 'package:daily_notes/data/models/models.dart';
+import 'package:daily_notes/data/services/services.dart';
 import 'package:daily_notes/domain/repositories/repositories.dart';
 
 void main() {
+  String clipboardText = '';
+
   setUp(() {
     SharedPreferences.setMockInitialValues({});
+    clipboardText = '';
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+          if (call.method == 'Clipboard.setData') {
+            final arguments = Map<String, dynamic>.from(call.arguments as Map);
+            clipboardText = arguments['text'] as String? ?? '';
+            return null;
+          }
+          if (call.method == 'Clipboard.getData') {
+            return <String, dynamic>{'text': clipboardText};
+          }
+          return null;
+        });
+  });
+
+  tearDown(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, null);
   });
 
   testWidgets('App builds successfully', (WidgetTester tester) async {
@@ -51,6 +73,80 @@ void main() {
 
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getString('daily_notes.theme_mode'), 'dark');
+  });
+
+  testWidgets('Shows data backup and restore actions', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const DailyNotesApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('设置'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('复制笔记备份'), findsOneWidget);
+    expect(find.text('从剪贴板恢复'), findsOneWidget);
+    expect(find.text('WebDAV 同步'), findsNothing);
+  });
+
+  testWidgets('Copies a valid backup to the clipboard', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const DailyNotesApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('新建笔记'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('noteTitleField')),
+      '需要备份的笔记',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('noteContentField')),
+      '备份正文',
+    );
+    await tester.tap(find.byTooltip('保存'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('设置'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('复制笔记备份'));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    final clipboardData = await Clipboard.getData(Clipboard.kTextPlain);
+    final backup = const NoteBackupService().decode(clipboardData!.text!);
+    expect(backup.notes, hasLength(1));
+    expect(backup.notes.single.title, '需要备份的笔记');
+  });
+
+  testWidgets('Restores a backup from the clipboard', (
+    WidgetTester tester,
+  ) async {
+    final note = Note(
+      id: 'restore-note',
+      title: '从备份恢复的笔记',
+      content: '恢复后的正文',
+      createdAt: DateTime.utc(2026, 7, 10, 8),
+      updatedAt: DateTime.utc(2026, 7, 10, 9),
+    );
+    final source = const NoteBackupService().encode([note]);
+    await Clipboard.setData(ClipboardData(text: source));
+
+    await tester.pumpWidget(const DailyNotesApp());
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('设置'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('从剪贴板恢复'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('恢复笔记备份？'), findsOneWidget);
+    await tester.tap(find.text('恢复'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('已恢复 1 条笔记'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.arrow_back));
+    await tester.pumpAndSettle();
+    expect(find.text('从备份恢复的笔记'), findsWidgets);
   });
 
   testWidgets('Confirms before discarding an unsaved note', (
@@ -119,6 +215,9 @@ class _FailingNoteRepository implements NoteRepository {
 
   @override
   Future<List<Note>> getNotes() async => [];
+
+  @override
+  Future<void> mergeNotes(List<Note> notes) async {}
 
   @override
   Future<void> upsertNote(Note note) async {

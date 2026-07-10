@@ -10,4 +10,6 @@ abstract class NoteRepository {
   Future<void> deleteNote(String id);
 
   Future<void> archiveNote(String id, {required bool isArchived});
+
+  Future<void> mergeNotes(List<Note> notes);
 }

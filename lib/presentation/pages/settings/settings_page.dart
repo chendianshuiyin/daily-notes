@@ -1,12 +1,91 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../providers/providers.dart';
 
-/// 设置页面
-///
-/// 应用设置，包括主题、WebDAV 同步配置等
+/// Application settings and local data management.
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
+
+  Future<void> _copyBackup(BuildContext context) async {
+    final noteProvider = context.read<NoteProvider>();
+    try {
+      await Clipboard.setData(ClipboardData(text: noteProvider.createBackup()));
+      if (!context.mounted) {
+        return;
+      }
+      _showMessage(context, '已复制 ${noteProvider.notes.length} 条笔记的 JSON 备份');
+    } catch (_) {
+      if (context.mounted) {
+        _showMessage(context, '复制备份失败，请重试');
+      }
+    }
+  }
+
+  Future<void> _restoreBackup(BuildContext context) async {
+    try {
+      final clipboardData = await Clipboard.getData(Clipboard.kTextPlain);
+      if (!context.mounted) {
+        return;
+      }
+
+      final source = clipboardData?.text?.trim() ?? '';
+      if (source.isEmpty) {
+        _showMessage(context, '剪贴板中没有可导入的备份');
+        return;
+      }
+
+      final noteProvider = context.read<NoteProvider>();
+      final backup = noteProvider.inspectBackup(source);
+      if (backup.notes.isEmpty) {
+        _showMessage(context, '备份中没有笔记');
+        return;
+      }
+
+      final shouldRestore = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('恢复笔记备份？'),
+          content: Text(
+            '将导入 ${backup.notes.length} 条笔记。现有同 ID 笔记会被备份内容覆盖，其他笔记会保留。',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('恢复'),
+            ),
+          ],
+        ),
+      );
+
+      if (shouldRestore != true || !context.mounted) {
+        return;
+      }
+
+      await noteProvider.restoreBackup(backup);
+      if (context.mounted) {
+        _showMessage(context, '已恢复 ${backup.notes.length} 条笔记');
+      }
+    } on FormatException catch (error) {
+      if (context.mounted) {
+        _showMessage(context, error.message.toString());
+      }
+    } catch (_) {
+      if (context.mounted) {
+        _showMessage(context, '恢复备份失败，请检查内容后重试');
+      }
+    }
+  }
+
+  void _showMessage(BuildContext context, String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -27,14 +106,20 @@ class SettingsPage extends StatelessWidget {
                 children: [_ThemeModeItem(settings: settings)],
               ),
               const Divider(),
-              const _SettingsSection(
-                title: '同步',
+              _SettingsSection(
+                title: '数据',
                 children: [
                   _SettingsItem(
-                    icon: Icons.cloud_outlined,
-                    title: 'WebDAV 同步',
-                    subtitle: '未配置',
-                    showChevron: false,
+                    icon: Icons.copy_all_outlined,
+                    title: '复制笔记备份',
+                    subtitle: '将全部笔记复制为 JSON',
+                    onTap: () => _copyBackup(context),
+                  ),
+                  _SettingsItem(
+                    icon: Icons.settings_backup_restore_outlined,
+                    title: '从剪贴板恢复',
+                    subtitle: '合并备份，同 ID 内容将覆盖',
+                    onTap: () => _restoreBackup(context),
                   ),
                 ],
               ),
@@ -92,12 +177,14 @@ class _SettingsItem extends StatelessWidget {
     required this.title,
     required this.subtitle,
     this.showChevron = true,
+    this.onTap,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
   final bool showChevron;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -106,6 +193,7 @@ class _SettingsItem extends StatelessWidget {
       title: Text(title),
       subtitle: Text(subtitle),
       trailing: showChevron ? const Icon(Icons.chevron_right) : null,
+      onTap: onTap,
     );
   }
 }

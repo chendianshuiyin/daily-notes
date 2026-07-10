@@ -85,6 +85,20 @@ class SharedPreferencesNoteRepository implements NoteRepository {
     await _saveNotes(notes);
   }
 
+  @override
+  Future<void> mergeNotes(List<Note> importedNotes) async {
+    final existingNotes = await getNotes();
+    final notesById = <String, Note>{
+      for (final note in existingNotes) note.id: note,
+    };
+
+    for (final note in importedNotes) {
+      notesById[note.id] = note;
+    }
+
+    await _saveNotes(notesById.values.toList());
+  }
+
   Future<void> _saveNotes(List<Note> notes) async {
     notes.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
 

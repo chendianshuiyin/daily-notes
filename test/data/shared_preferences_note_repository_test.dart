@@ -40,4 +40,35 @@ void main() {
     await repository.deleteNote(original.id);
     expect(await repository.getNotes(), isEmpty);
   });
+
+  test('merges restored notes and overwrites matching IDs', () async {
+    final original = Note(
+      id: 'same-id',
+      title: '现有笔记',
+      content: '旧内容',
+      createdAt: DateTime.utc(2026, 7, 9),
+      updatedAt: DateTime.utc(2026, 7, 9),
+    );
+    final untouched = Note(
+      id: 'keep-id',
+      title: '保留笔记',
+      content: '保持不变',
+      createdAt: DateTime.utc(2026, 7, 8),
+      updatedAt: DateTime.utc(2026, 7, 8),
+    );
+    final restored = original.copyWith(
+      title: '备份笔记',
+      content: '新内容',
+      updatedAt: DateTime.utc(2026, 7, 10),
+    );
+
+    await repository.upsertNote(original);
+    await repository.upsertNote(untouched);
+    await repository.mergeNotes([restored]);
+
+    final notes = await repository.getNotes();
+    expect(notes, hasLength(2));
+    expect(notes.firstWhere((note) => note.id == 'same-id').content, '新内容');
+    expect(notes.firstWhere((note) => note.id == 'keep-id').content, '保持不变');
+  });
 }

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../../core/utils/utils.dart';
 import '../../data/models/models.dart';
 import '../../data/repositories/repositories.dart';
+import '../../data/services/services.dart';
 import '../../domain/repositories/repositories.dart';
 
 class NoteProvider extends ChangeNotifier {
@@ -10,6 +11,7 @@ class NoteProvider extends ChangeNotifier {
     : _repository = repository ?? const SharedPreferencesNoteRepository();
 
   final NoteRepository _repository;
+  final NoteBackupService _backupService = const NoteBackupService();
 
   List<Note> _notes = [];
   bool _isLoading = false;
@@ -104,6 +106,19 @@ class NoteProvider extends ChangeNotifier {
 
   Future<void> archiveNote(String id, {required bool isArchived}) async {
     await _repository.archiveNote(id, isArchived: isArchived);
+    await loadNotes();
+  }
+
+  String createBackup() {
+    return _backupService.encode(_notes);
+  }
+
+  NoteBackup inspectBackup(String source) {
+    return _backupService.decode(source);
+  }
+
+  Future<void> restoreBackup(NoteBackup backup) async {
+    await _repository.mergeNotes(backup.notes);
     await loadNotes();
   }
 }
