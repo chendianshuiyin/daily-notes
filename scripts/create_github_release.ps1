@@ -1,7 +1,7 @@
 param(
-    [string]$Tag = "v1.1.0",
-    [string]$Title = "Daily Notes v1.1.0",
-    [string]$NotesFile = "docs/github_release_v1.1.0.md"
+    [string]$Tag = "v1.2.0",
+    [string]$Title = "Daily Notes v1.2.0",
+    [string]$NotesFile = "docs/github_release_v1.2.0.md"
 )
 
 $ErrorActionPreference = "Stop"
@@ -33,7 +33,6 @@ Set-Location $repoRoot
 
 $assets = @(
     "dist/daily-notes-$Tag-android-release.apk",
-    "dist/daily-notes-$Tag-windows-x64.zip",
     "dist/daily-notes-$Tag-web.zip"
 )
 

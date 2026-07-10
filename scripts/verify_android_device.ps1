@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$ApkPath = "dist/daily-notes-v1.1.0-android-release.apk",
+    [string]$ApkPath = "dist/daily-notes-v1.2.0-android-release.apk",
     [string]$DeviceSerial,
     [string]$SmokeTitle,
     [switch]$AllowEmulator

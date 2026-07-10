@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.2.0 - 2026-07-11
+
+### Added
+
+- WebDAV connection testing, encrypted credentials, overwrite upload, download-and-merge, and bidirectional synchronization.
+- Multi-level inline tags such as `#work/planning`, parent-tag aggregation, and random note review.
+- Responsive tag navigation with a desktop sidebar and a mobile side sheet.
+
+### Changed
+
+- Moved tags into note text instead of a separate editor field, with automatic migration for older dedicated tags.
+- Made WebDAV synchronization conflict-safe by keeping the note with the newer `updatedAt` value and never propagating deletions automatically.
+- Bumped app version to `1.2.0+6`.
+
+### Verified
+
+- `flutter analyze` and 29 unit/widget tests
+- Android and Web release builds
+- Android 36 emulator checks for WebDAV settings, tag navigation, and the editor toolbar
+
 ## 1.1.0 - 2026-07-11
 
 ### Added

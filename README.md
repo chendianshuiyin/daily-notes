@@ -1,62 +1,59 @@
 # Daily Notes
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter)](https://flutter.dev/)
-[![Release](https://img.shields.io/github/v/release/chendianshuiyin/daily-notes)](https://github.com/chendianshuiyin/daily-notes/releases/tag/v1.1.0)
+[![Release](https://img.shields.io/github/v/release/chendianshuiyin/daily-notes)](https://github.com/chendianshuiyin/daily-notes/releases/tag/v1.2.0)
 [![Platform](https://img.shields.io/badge/platform-Android%20%7C%20Windows%20%7C%20Linux%20%7C%20Web-blue)](#下载)
 
-Daily Notes 是一个现代、轻量、本地优先的 Flutter 日记应用。它把文字、图片、语音听写、`#标签`、写作热力图和 JSON 备份整合在同一套本地工作流中，适合日常记录、灵感收集和连续写作回顾。
+Daily Notes 是一个现代、轻量、本地优先的 Flutter 笔记应用。它把文字、图片、语音听写、内联多级标签、写作热力图、JSON 备份和可选 WebDAV 同步整合在同一套低打扰记录流程中。
 
 ## 应用预览
 
-| 首页与热力图 | 图文编辑器 |
+| 首页与热力图 | 图文标签编辑器 |
 | --- | --- |
-| ![Daily Notes 首页](docs/pictures/android-v1.1.0-home.png) | ![Daily Notes 图文标签编辑器](docs/pictures/android-v1.1.0-editor.png) |
-| 历史搜索与筛选 | 设置与数据管理 |
-| ![Daily Notes 历史页](docs/pictures/android-v1.1.0-history.png) | ![Daily Notes 设置页](docs/pictures/android-v1.1.0-settings.png) |
+| ![Daily Notes 首页](docs/pictures/android-v1.2.0-home.png) | ![Daily Notes 编辑器](docs/pictures/android-v1.2.0-editor.png) |
+| 多级标签侧边栏 | WebDAV 与数据管理 |
+| ![Daily Notes 标签侧边栏](docs/pictures/android-v1.2.0-tags.png) | ![Daily Notes WebDAV 设置](docs/pictures/android-v1.2.0-settings.png) |
 
 ## 下载
 
-最新版本：[`v1.1.0`](https://github.com/chendianshuiyin/daily-notes/releases/tag/v1.1.0)
+最新版本：[`v1.2.0`](https://github.com/chendianshuiyin/daily-notes/releases/tag/v1.2.0)
 
-- Android: [`daily-notes-v1.1.0-android-release.apk`](https://github.com/chendianshuiyin/daily-notes/releases/download/v1.1.0/daily-notes-v1.1.0-android-release.apk)
-- Windows: [`daily-notes-v1.1.0-windows-x64.zip`](https://github.com/chendianshuiyin/daily-notes/releases/download/v1.1.0/daily-notes-v1.1.0-windows-x64.zip)
-- Linux: [`daily-notes-v1.1.0-linux-x64.zip`](https://github.com/chendianshuiyin/daily-notes/releases/download/v1.1.0/daily-notes-v1.1.0-linux-x64.zip)
-- Web 静态包: [`daily-notes-v1.1.0-web.zip`](https://github.com/chendianshuiyin/daily-notes/releases/download/v1.1.0/daily-notes-v1.1.0-web.zip)
+- Android: [`daily-notes-v1.2.0-android-release.apk`](https://github.com/chendianshuiyin/daily-notes/releases/download/v1.2.0/daily-notes-v1.2.0-android-release.apk)
+- Windows: [`daily-notes-v1.2.0-windows-x64.zip`](https://github.com/chendianshuiyin/daily-notes/releases/download/v1.2.0/daily-notes-v1.2.0-windows-x64.zip)
+- Linux: [`daily-notes-v1.2.0-linux-x64.zip`](https://github.com/chendianshuiyin/daily-notes/releases/download/v1.2.0/daily-notes-v1.2.0-linux-x64.zip)
+- Web 静态包: [`daily-notes-v1.2.0-web.zip`](https://github.com/chendianshuiyin/daily-notes/releases/download/v1.2.0/daily-notes-v1.2.0-web.zip)
 
-Android 安装：下载 APK 后允许浏览器或文件管理器“安装未知来源应用”，再按系统提示安装。包名为 `com.chendianshuiyin.dailynotes`。
-
-## Android 自动验收
-
-当前发布使用 Android 36 模拟器作为 Android 端最终验收环境：
-
-```powershell
-pwsh -File scripts/verify_android_device.ps1 -DeviceSerial emulator-5554 -AllowEmulator
-```
-
-脚本会核对 APK 包名和版本、升级安装、启动应用、创建并保存测试笔记，最后强制停止并冷启动验证持久化。证据输出至 `dist/android-device-verification/`。脚本仍保留默认只接受实体设备的严格模式，但实体手机不是本版发布门槛。
+Android 包名为 `com.chendianshuiyin.dailynotes`。安装 APK 时按系统提示允许当前文件来源即可。
 
 ## 核心功能
 
 - 新建、编辑、保存、归档和删除笔记，离开未保存内容前主动确认。
-- 为笔记添加最多 8 个 `#标签`，同时识别正文内的 hashtag，并按标签统计、搜索和筛选。
-- Android、Web 和 Windows 编辑器支持短语音听写，含录音权限和错误反馈。
-- 每条笔记最多添加 4 张图片；选择后自动缩放压缩，支持缩略图、预览和移除。
-- GitHub 风格写作热力图，按窗口宽度显示最近 16、28 或 52 周，并查看指定日期记录。
-- 历史页搜索标题、正文和 `#标签`，筛选当前或已归档笔记。
-- 跟随系统、浅色和深色主题，使用平台字体保证离线首次启动立即渲染。
-- 将全部图文笔记复制为 JSON，并从剪贴板合并恢复。
-- Hive CE 本地存储；从 v1.0.2 升级时自动迁移旧 `SharedPreferences` 笔记。
+- 在正文中直接输入 `#标签` 或 `#父级/子级`，按标签分支搜索和归档。
+- 桌面宽屏显示常驻标签侧边栏，移动端使用滑出侧栏；支持随机回顾当前笔记。
+- Android、Web 和 Windows 支持短语音听写，含权限、服务不可用和无语音反馈。
+- 每条笔记最多添加 4 张图片，自动缩放压缩，并支持预览与移除。
+- GitHub 风格写作热力图，按宽度显示最近 16、28 或 52 周，并查看指定日期记录。
+- Hive CE 本地持久化、JSON 复制备份和剪贴板合并恢复。
+- 可选 WebDAV 连接测试、双向同步、覆盖上传和下载合并。
+
+## WebDAV 同步
+
+在“设置 > 同步 > WebDAV 配置”中填写服务器地址、用户名、密码或应用密码及远端目录。凭据由平台安全存储保存，默认备份文件为 `/DailyNotes/daily-notes-backup.json`。
+
+“立即同步”会保留两端独有笔记；相同 ID 按 `updatedAt` 选择较新内容，并将合并结果写回远端。删除不会自动传播，避免设备间误删。“覆盖上传”和“下载并合并”用于明确的手动恢复场景。
+
+Web 版必须部署在 HTTPS 或 localhost，并要求 WebDAV 服务端允许站点来源的 CORS 请求。首次使用真实账户前，建议先保留一份 JSON 备份。
+
+![Daily Notes WebDAV 配置](docs/pictures/android-v1.2.0-webdav.png)
 
 ## 校验信息
 
 | 资产 | SHA-256 |
 | --- | --- |
-| `daily-notes-v1.1.0-android-release.apk` | `84B44433730255623F48B85FE7F3BEDB8C2A2DBECBEBDE5C30E7029CE806B5B5` |
-| `daily-notes-v1.1.0-windows-x64.zip` | `E778A3441B9948B7990B27D004DD09E859C6353144C3CF2CCB88E06638ACC9D4` |
-| `daily-notes-v1.1.0-linux-x64.zip` | `BB3C55A16BD72CDAB8879B396BD6A18ECE742AAB5C7315125416B52A0C80165D` |
-| `daily-notes-v1.1.0-web.zip` | `F415C0DDC179F47C41335D5F10AF4C23D62DBC6C369DC3EA5F0220A6AC34115F` |
+| `daily-notes-v1.2.0-android-release.apk` | `4927D526136BA9B50C36DC9A3EFDFADBB63863EF6D8F018EA831273C3F53934A` |
+| `daily-notes-v1.2.0-web.zip` | `506B80358F17DC9CB5B07A7BB706E207099F1D3D61A32D025D3A69D5FB44BC38` |
 
-发布门禁：`flutter analyze` 无问题，23 项 unit/widget tests 通过，Android/Web/Windows release 构建通过；Linux x64 由 GitHub Actions 构建。Android 36 模拟器已验证升级安装、标签保存筛选、录音权限、无语音反馈和旧数据保留。
+Windows 与 Linux 包由 GitHub Actions 从同一标签构建，并随包提供 `.sha256` 文件。发布门禁包括 `flutter analyze`、29 项 unit/widget tests、Android/Web release 构建，以及 Android 36 模拟器升级、保存、冷启动持久化和响应式界面检查。
 
 ## 开发
 
@@ -67,15 +64,22 @@ flutter test
 flutter run -d windows
 ```
 
-主要目录：`lib/core` 放置主题与通用组件，`lib/data` 包含 Hive repository、模型和备份/图片服务，`lib/domain` 定义 repository 接口，`lib/presentation` 包含页面、路由和 Provider；测试位于 `test/`，发布资料位于 `docs/`。
+Windows 构建需要 Visual Studio 的 C++ ATL 组件。Linux 构建需要 `libsecret-1-dev`，运行时还需要 Secret Service 提供程序。主要目录：`lib/core` 放置主题与通用组件，`lib/data` 包含 Hive repository、模型和同步服务，`lib/domain` 定义 repository 接口，`lib/presentation` 包含页面、路由和 Provider；测试位于 `test/`。
+
+## Android 自动验收
+
+```powershell
+pwsh -File scripts/verify_android_device.ps1 -DeviceSerial emulator-5554 -AllowEmulator
+```
+
+脚本会核对 APK、升级安装、创建并保存测试笔记，再通过强制停止和冷启动验证持久化。实体手机不属于当前发布门槛。
 
 ## 发布资料
 
-- [v1.1.0 发布说明](docs/github_release_v1.1.0.md)
+- [v1.2.0 发布说明](docs/github_release_v1.2.0.md)
 - [发布状态报告](docs/release_status_report.md)
-- [v1.1.0 最终发布报告](docs/final_release_report_v1.1.0.md)
 - [变更日志](CHANGELOG.md)
 
 ## 当前范围
 
-当前维护和发布 Android、Windows、Linux 与 Web；iOS/macOS 暂不纳入本轮。Linux 版不提供语音输入，其余笔记功能保持一致。数据默认仅存储在当前设备，不包含云同步。Android 模拟器安装与完整使用流程已通过，实体手机不纳入本版验收范围。
+当前维护 Android、Windows、Linux 与 Web；iOS/macOS 暂不纳入本轮。Linux 版暂不提供语音输入。WebDAV 为用户自行配置的可选同步能力，未配置时应用仍保持纯本地工作。
