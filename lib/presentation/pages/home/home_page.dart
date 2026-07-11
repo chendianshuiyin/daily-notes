@@ -4,10 +4,13 @@ import 'package:provider/provider.dart';
 import '../../../core/utils/utils.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../../data/models/models.dart';
+import '../../../data/services/services.dart';
 import '../../providers/providers.dart';
 import '../../routers/app_router.dart';
 
 /// Home dashboard with activity history and recent notes.
+enum _AskNotesScope { filtered, selectedDay, all }
+
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -21,8 +24,298 @@ class _HomePageState extends State<HomePage> {
 
   static const _untagged = '__untagged__';
 
+  bool _matchesSelectedTag(Note note) {
+    return _selectedTag == null ||
+        (_selectedTag == _untagged
+            ? note.tags.isEmpty
+            : Note.matchesTag(note.tags, _selectedTag!));
+  }
+
+  Future<void> _showAskNotes() async {
+    final ai = context.read<AiProvider>();
+    final noteProvider = context.read<NoteProvider>();
+    final config = ai.config;
+    if (config == null) {
+      return;
+    }
+    final questionController = TextEditingController();
+    var scope = _selectedTag == null
+        ? _AskNotesScope.all
+        : _AskNotesScope.filtered;
+    String? errorMessage;
+
+    List<Note> notesForScope(_AskNotesScope value) {
+      final notes = switch (value) {
+        _AskNotesScope.filtered =>
+          noteProvider.activeNotes.where(_matchesSelectedTag).toList(),
+        _AskNotesScope.selectedDay =>
+          noteProvider
+              .notesForDay(_selectedDate)
+              .where((note) => !note.isArchived)
+              .toList(),
+        _AskNotesScope.all => noteProvider.activeNotes,
+      };
+      return notes
+          .where(
+            (note) =>
+                note.title.trim().isNotEmpty || note.content.trim().isNotEmpty,
+          )
+          .take(30)
+          .toList();
+    }
+
+    String scopeLabel(_AskNotesScope value) {
+      return switch (value) {
+        _AskNotesScope.filtered =>
+          _selectedTag == _untagged
+              ? '当前筛选：无标签'
+              : '当前筛选：${_selectedTag ?? '全部'}',
+        _AskNotesScope.selectedDay => '日期：${_formatDay(_selectedDate)}',
+        _AskNotesScope.all => '全部活动笔记',
+      };
+    }
+
+    _AskNotesRequest? request;
+    try {
+      request = await showDialog<_AskNotesRequest>(
+        context: context,
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (dialogContext, setDialogState) {
+            final scopedNotes = notesForScope(scope);
+            return AlertDialog(
+              key: const ValueKey('askNotesScopeDialog'),
+              title: const Text('问我的笔记'),
+              content: SizedBox(
+                width: 540,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      TextField(
+                        key: const ValueKey('askNotesQuestionField'),
+                        controller: questionController,
+                        autofocus: true,
+                        minLines: 2,
+                        maxLines: 4,
+                        maxLength: 1000,
+                        decoration: const InputDecoration(
+                          labelText: '问题',
+                          hintText: '例如：最近关于发布流程有哪些结论？',
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<_AskNotesScope>(
+                        key: const ValueKey('askNotesScopeField'),
+                        initialValue: scope,
+                        decoration: const InputDecoration(labelText: '来源范围'),
+                        items: [
+                          if (_selectedTag != null)
+                            DropdownMenuItem(
+                              value: _AskNotesScope.filtered,
+                              child: Text(scopeLabel(_AskNotesScope.filtered)),
+                            ),
+                          DropdownMenuItem(
+                            value: _AskNotesScope.selectedDay,
+                            child: Text(scopeLabel(_AskNotesScope.selectedDay)),
+                          ),
+                          const DropdownMenuItem(
+                            value: _AskNotesScope.all,
+                            child: Text('全部活动笔记'),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          if (value != null) {
+                            setDialogState(() {
+                              scope = value;
+                              errorMessage = null;
+                            });
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      ExpansionTile(
+                        key: const ValueKey('askNotesSourceDetails'),
+                        tilePadding: EdgeInsets.zero,
+                        title: Text('将发送 ${scopedNotes.length} 条笔记'),
+                        subtitle: const Text('每条仅发送标题、日期、标签和前 2000 字'),
+                        children: [
+                          for (final note in scopedNotes)
+                            ListTile(
+                              dense: true,
+                              title: Text(note.displayTitle),
+                              subtitle: Text(
+                                '${note.createdAt.year}-${note.createdAt.month.toString().padLeft(2, '0')}-${note.createdAt.day.toString().padLeft(2, '0')}',
+                              ),
+                            ),
+                        ],
+                      ),
+                      const Text('不会发送图片、归档笔记、WebDAV 凭据或隐藏元数据。'),
+                      if (errorMessage != null) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          errorMessage!,
+                          style: TextStyle(
+                            color: Theme.of(dialogContext).colorScheme.error,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('取消'),
+                ),
+                FilledButton(
+                  key: const ValueKey('confirmAskNotesButton'),
+                  onPressed: () {
+                    final question = questionController.text.trim();
+                    if (question.isEmpty) {
+                      setDialogState(() => errorMessage = '请输入问题');
+                      return;
+                    }
+                    if (scopedNotes.isEmpty) {
+                      setDialogState(() => errorMessage = '当前范围没有可发送的笔记');
+                      return;
+                    }
+                    Navigator.of(dialogContext).pop(
+                      _AskNotesRequest(
+                        question: question,
+                        sources: [
+                          for (final note in scopedNotes)
+                            AiSourceNote(
+                              id: note.id,
+                              date: note.createdAt,
+                              title: note.title,
+                              content: note.content,
+                              tags: note.tags,
+                            ),
+                        ],
+                      ),
+                    );
+                  },
+                  child: const Text('确认发送'),
+                ),
+              ],
+            );
+          },
+        ),
+      );
+    } finally {
+      await Future<void>.delayed(kThemeAnimationDuration);
+      questionController.dispose();
+    }
+    if (request == null || !mounted) {
+      return;
+    }
+    final result = await showDialog<_AskNotesResult>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) =>
+          _AskNotesProgressDialog(provider: ai, request: request!),
+    );
+    if (!mounted || result == null) {
+      return;
+    }
+    if (result.error != null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(result.error!.message)));
+      return;
+    }
+    await _showGroundedAnswer(result.answer!, request.sources);
+  }
+
+  Future<void> _showGroundedAnswer(
+    AiGroundedAnswer answer,
+    List<AiSourceNote> sources,
+  ) async {
+    final sourceById = {for (final source in sources) source.id: source};
+    final noteId = await showModalBottomSheet<String>(
+      context: context,
+      constraints: const BoxConstraints(maxWidth: 720),
+      isScrollControlled: true,
+      builder: (sheetContext) => SafeArea(
+        child: SizedBox(
+          height: MediaQuery.sizeOf(sheetContext).height * 0.72,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+                child: Row(
+                  children: [
+                    const Icon(Icons.question_answer_outlined),
+                    const SizedBox(width: 8),
+                    Text(
+                      '来自我的笔记',
+                      style: Theme.of(sheetContext).textTheme.titleMedium,
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      onPressed: () => Navigator.of(sheetContext).pop(),
+                      icon: const Icon(Icons.close),
+                      tooltip: '关闭回答',
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                  children: [
+                    SelectableText(
+                      answer.answer,
+                      key: const ValueKey('askNotesAnswerText'),
+                      style: Theme.of(sheetContext).textTheme.bodyLarge,
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      '来源',
+                      style: Theme.of(sheetContext).textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: 8),
+                    if (answer.citations.isEmpty)
+                      const Text('这次回答没有足够的笔记证据。')
+                    else
+                      for (final citation in answer.citations)
+                        if (sourceById[citation.noteId] case final source?)
+                          Card(
+                            child: ListTile(
+                              key: ValueKey(
+                                'askNotesCitation-${citation.noteId}',
+                              ),
+                              title: Text(
+                                source.title.trim().isEmpty
+                                    ? '未命名笔记'
+                                    : source.title,
+                              ),
+                              subtitle: Text(citation.reason),
+                              trailing: const Icon(Icons.chevron_right),
+                              onTap: () => Navigator.of(
+                                sheetContext,
+                              ).pop(citation.noteId),
+                            ),
+                          ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (noteId != null && mounted) {
+      context.push('${AppRouter.editor}?noteId=${Uri.encodeComponent(noteId)}');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final aiConfigured = context.watch<AiProvider>().isConfigured;
     return Scaffold(
       drawer: Consumer<NoteProvider>(
         builder: (context, notes, child) {
@@ -61,11 +354,24 @@ class _HomePageState extends State<HomePage> {
         title: const Row(
           children: [
             Icon(Icons.auto_stories_outlined, size: 22),
-            SizedBox(width: 10),
-            Text('Daily Notes'),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Daily Notes',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
         actions: [
+          if (aiConfigured)
+            IconButton(
+              key: const ValueKey('askNotesButton'),
+              icon: const Icon(Icons.question_answer_outlined),
+              onPressed: _showAskNotes,
+              tooltip: '问我的笔记',
+            ),
           IconButton(
             icon: const Icon(Icons.view_stream_outlined),
             onPressed: () => context.push(AppRouter.history),
@@ -92,19 +398,12 @@ class _HomePageState extends State<HomePage> {
           }
 
           final todayNotes = noteProvider.todayNotes;
-          bool matchesSelection(Note note) {
-            return _selectedTag == null ||
-                (_selectedTag == _untagged
-                    ? note.tags.isEmpty
-                    : Note.matchesTag(note.tags, _selectedTag!));
-          }
-
           final visibleNotes = noteProvider.activeNotes
-              .where(matchesSelection)
+              .where(_matchesSelectedTag)
               .toList();
           final selectedNotes = noteProvider
               .notesForDay(_selectedDate)
-              .where((note) => !note.isArchived && matchesSelection(note))
+              .where((note) => !note.isArchived && _matchesSelectedTag(note))
               .toList();
 
           return Align(
@@ -194,6 +493,99 @@ class _HomePageState extends State<HomePage> {
 
   static String _formatDay(DateTime value) {
     return '${value.month}月${value.day}日';
+  }
+}
+
+class _AskNotesRequest {
+  const _AskNotesRequest({required this.question, required this.sources});
+
+  final String question;
+  final List<AiSourceNote> sources;
+}
+
+class _AskNotesResult {
+  const _AskNotesResult.success(this.answer) : error = null;
+  const _AskNotesResult.failure(this.error) : answer = null;
+
+  final AiGroundedAnswer? answer;
+  final AiRemoteException? error;
+}
+
+class _AskNotesProgressDialog extends StatefulWidget {
+  const _AskNotesProgressDialog({
+    required this.provider,
+    required this.request,
+  });
+
+  final AiProvider provider;
+  final _AskNotesRequest request;
+
+  @override
+  State<_AskNotesProgressDialog> createState() =>
+      _AskNotesProgressDialogState();
+}
+
+class _AskNotesProgressDialogState extends State<_AskNotesProgressDialog> {
+  bool _isCancelling = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _run());
+  }
+
+  Future<void> _run() async {
+    try {
+      final answer = await widget.provider.askNotes(
+        question: widget.request.question,
+        sources: widget.request.sources,
+      );
+      if (mounted) {
+        Navigator.of(context).pop(_AskNotesResult.success(answer));
+      }
+    } on AiRemoteException catch (error) {
+      if (mounted) {
+        Navigator.of(context).pop(_AskNotesResult.failure(error));
+      }
+    } catch (_) {
+      if (mounted) {
+        Navigator.of(context).pop(
+          const _AskNotesResult.failure(
+            AiRemoteException(AiRemoteError.network, '笔记问答失败，请重试'),
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      key: const ValueKey('askNotesProgressDialog'),
+      title: const Text('正在查找笔记证据'),
+      content: const Row(
+        children: [
+          SizedBox.square(
+            dimension: 22,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          SizedBox(width: 14),
+          Expanded(child: Text('回答只允许引用刚才确认的来源')),
+        ],
+      ),
+      actions: [
+        TextButton(
+          key: const ValueKey('cancelAskNotesButton'),
+          onPressed: _isCancelling
+              ? null
+              : () {
+                  setState(() => _isCancelling = true);
+                  widget.provider.cancel();
+                },
+          child: Text(_isCancelling ? '正在取消' : '取消请求'),
+        ),
+      ],
+    );
   }
 }
 

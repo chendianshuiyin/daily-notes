@@ -46,11 +46,15 @@ class NoteActivityHeatmap extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Text(
-                    '${_shortDate(firstDay)} - ${_shortDate(lastDay)}',
-                    style: Theme.of(context).textTheme.bodySmall,
+                  Expanded(
+                    child: Text(
+                      '${_shortDate(firstDay)} - ${_shortDate(lastDay)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
                   ),
-                  const Spacer(),
+                  const SizedBox(width: 8),
                   Text(
                     '最近 $weeks 周',
                     style: Theme.of(context).textTheme.bodySmall,

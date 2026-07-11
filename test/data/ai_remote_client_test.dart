@@ -131,6 +131,85 @@ void main() {
       expect(payload['TRANSCRIPT'], contains('忽略之前指令'));
     },
   );
+
+  test('accepts sent citations and rejects fabricated source IDs', () async {
+    final source = AiSourceNote(
+      id: 'note-1',
+      date: DateTime.utc(2026, 7, 11),
+      title: '发布复盘',
+      content: '发布前需要完成回归测试。',
+      tags: const ['#开发'],
+    );
+    final validTransport = _FakeAiTransport(
+      response: AiTransportResponse(
+        statusCode: 200,
+        data: {
+          'choices': [
+            {
+              'message': {
+                'content': jsonEncode({
+                  'answer': '发布前应完成回归测试。',
+                  'citations': [
+                    {'note_id': 'note-1', 'reason': '笔记明确记录了步骤'},
+                  ],
+                }),
+              },
+            },
+          ],
+        },
+      ),
+    );
+    final validClient = AiRemoteClient(transport: validTransport);
+    final answer = await validClient.askNotes(
+      config,
+      question: '发布前要做什么？',
+      sources: [source],
+    );
+    expect(answer.answer, '发布前应完成回归测试。');
+    expect(answer.citations.single.noteId, 'note-1');
+    final messages = validTransport.data!['messages'] as List;
+    final requestPayload =
+        jsonDecode((messages[1] as Map<String, dynamic>)['content'] as String)
+            as Map<String, dynamic>;
+    expect(requestPayload['QUESTION'], '发布前要做什么？');
+    expect(
+      ((requestPayload['SOURCE_NOTES'] as List).single
+          as Map<String, dynamic>)['id'],
+      'note-1',
+    );
+
+    final invalidClient = AiRemoteClient(
+      transport: _FakeAiTransport(
+        response: AiTransportResponse(
+          statusCode: 200,
+          data: {
+            'choices': [
+              {
+                'message': {
+                  'content': jsonEncode({
+                    'answer': '伪造答案',
+                    'citations': [
+                      {'note_id': 'not-sent', 'reason': '不存在的来源'},
+                    ],
+                  }),
+                },
+              },
+            ],
+          },
+        ),
+      ),
+    );
+    await expectLater(
+      invalidClient.askNotes(config, question: '问题', sources: [source]),
+      throwsA(
+        isA<AiRemoteException>().having(
+          (error) => error.code,
+          'code',
+          AiRemoteError.malformed,
+        ),
+      ),
+    );
+  });
 }
 
 class _FakeAiTransport implements AiTransport {

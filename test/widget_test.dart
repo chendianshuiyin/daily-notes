@@ -424,6 +424,80 @@ void main() {
     expect(titleField.controller!.text, 'Flutter 发布复盘');
   });
 
+  testWidgets('Asks selected notes and opens a validated citation', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(360, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final now = DateTime.now();
+    await testRepository.upsertNote(
+      Note(
+        id: 'ask-source',
+        title: '发布流程结论',
+        content: '发布前需要完成完整回归测试。 #开发',
+        createdAt: now,
+        updatedAt: now,
+      ),
+    );
+    await testRepository.upsertNote(
+      Note(
+        id: 'ask-archived',
+        title: '不应发送的归档笔记',
+        content: '归档内容',
+        createdAt: now,
+        updatedAt: now,
+        isArchived: true,
+      ),
+    );
+    final store = _MemoryAiConfigStore();
+    final remoteClient = _RecordingAiRemoteClient();
+    final aiProvider = AiProvider(
+      configStore: store,
+      remoteClient: remoteClient,
+    );
+    await aiProvider.save(
+      AiConfig.validated(
+        endpoint: 'https://example.com/v1',
+        model: 'model-mini',
+        apiKey: 'secret',
+      ),
+    );
+    await tester.pumpWidget(
+      DailyNotesApp(noteRepository: testRepository, aiProvider: aiProvider),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('askNotesButton')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('askNotesQuestionField')),
+      '发布前要完成什么？',
+    );
+    await tester.tap(find.byKey(const ValueKey('askNotesSourceDetails')));
+    await tester.pumpAndSettle();
+    expect(find.text('发布流程结论'), findsWidgets);
+    expect(find.text('不应发送的归档笔记'), findsNothing);
+    expect(remoteClient.askCallCount, 0);
+    await tester.tap(find.byKey(const ValueKey('confirmAskNotesButton')));
+    await tester.pumpAndSettle();
+
+    expect(remoteClient.askCallCount, 1);
+    final answerText = tester.widget<SelectableText>(
+      find.byKey(const ValueKey('askNotesAnswerText')),
+    );
+    expect(answerText.data, '发布前需要完成完整回归测试。');
+    expect(
+      find.byKey(const ValueKey('askNotesCitation-ask-source')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const ValueKey('askNotesCitation-ask-source')));
+    await tester.pumpAndSettle();
+    final titleField = tester.widget<TextField>(
+      find.byKey(const ValueKey('noteTitleField')),
+    );
+    expect(titleField.controller!.text, '发布流程结论');
+  });
+
   testWidgets('Displays and removes an existing image attachment', (
     WidgetTester tester,
   ) async {
@@ -974,6 +1048,7 @@ class _MemoryAiConfigStore implements AiConfigStore {
 class _RecordingAiRemoteClient extends AiRemoteClient {
   int callCount = 0;
   int cleanCallCount = 0;
+  int askCallCount = 0;
 
   @override
   Future<List<AiTagSuggestion>> suggestTags(
@@ -999,6 +1074,23 @@ class _RecordingAiRemoteClient extends AiRemoteClient {
     return AiTranscriptSuggestion(
       original: transcript,
       suggested: '今天要整理发布计划。',
+    );
+  }
+
+  @override
+  Future<AiGroundedAnswer> askNotes(
+    AiConfig config, {
+    required String question,
+    required List<AiSourceNote> sources,
+    CancelToken? cancelToken,
+  }) async {
+    askCallCount++;
+    await Future<void>.delayed(const Duration(milliseconds: 80));
+    return AiGroundedAnswer(
+      answer: '发布前需要完成完整回归测试。',
+      citations: [
+        AiGroundedCitation(noteId: sources.single.id, reason: '来源笔记明确记录了发布前步骤'),
+      ],
     );
   }
 }

@@ -680,6 +680,22 @@
 - Added a widget test proving the remote client is not called before scope confirmation and that returned tags remain unapplied until the user confirms insertion.
 - `flutter test`: 59 tests passed; `flutter analyze`: passed with no issues.
 - Android release APK built successfully at 61.3 MB and the Web JavaScript release completed.
+
+## 2026-07-11 Grounded ask-my-notes
+
+### Completed
+
+- Added a home `Ask my notes` action for configured AI providers with user-selected current-tag, selected-date, or all-active-note scope.
+- Listed exact source note titles and dates before confirmation, limited transmission to 30 notes and 2000 characters per note, and excluded archived/image-only notes, attachments, credentials, and hidden metadata.
+- Required typed answers with citation note IDs and rejected any citation that was not part of the confirmed source set.
+- Added cancellable progress and a grounded answer sheet whose source cards open the original notes; no-evidence answers remain valid without fabricated citations.
+- Fixed a question-dialog controller disposal race plus 360-pixel Home AppBar and heatmap date-header overflows exposed by the new narrow-screen test.
+
+### Verification
+
+- Added transport coverage for question/source data boundaries and fabricated citations plus an end-to-end 360x800 widget flow proving no request occurs before confirmation and validated sources open correctly.
+- `flutter test`: 66 tests passed; `flutter analyze`: passed with no issues.
+- Android release APK built successfully at 61.6 MB and the Web JavaScript release completed.
 - Android 36 emulator upgrade installation visually confirmed the fixed Save action and overflow-free scrollable tool strip on the narrow editor layout.
 
 ## 2026-07-11 Explainable related notes
