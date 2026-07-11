@@ -1,15 +1,19 @@
 import 'package:flutter/foundation.dart';
+import 'package:dio/dio.dart';
 
 import '../../data/services/services.dart';
 
 class AiProvider extends ChangeNotifier {
-  AiProvider({AiConfigStore? configStore})
-    : _configStore = configStore ?? SecureAiConfigStore();
+  AiProvider({AiConfigStore? configStore, AiRemoteClient? remoteClient})
+    : _configStore = configStore ?? SecureAiConfigStore(),
+      _remoteClient = remoteClient ?? AiRemoteClient();
 
   final AiConfigStore _configStore;
+  final AiRemoteClient _remoteClient;
   AiConfig? _config;
   bool _isBusy = false;
   String? _errorMessage;
+  CancelToken? _cancelToken;
 
   AiConfig? get config => _config;
   bool get isConfigured => _config != null;
@@ -40,6 +44,38 @@ class AiProvider extends ChangeNotifier {
       await _configStore.clear();
       _config = null;
     });
+  }
+
+  Future<List<AiTagSuggestion>> suggestTags(AiNoteContext context) async {
+    final currentConfig = _config;
+    if (currentConfig == null) {
+      throw const AiRemoteException(AiRemoteError.authentication, '请先配置 AI 服务');
+    }
+    if (_isBusy) {
+      throw const AiRemoteException(AiRemoteError.network, '另一个 AI 操作正在进行');
+    }
+    _isBusy = true;
+    _errorMessage = null;
+    _cancelToken = CancelToken();
+    notifyListeners();
+    try {
+      return await _remoteClient.suggestTags(
+        currentConfig,
+        context,
+        cancelToken: _cancelToken,
+      );
+    } on AiRemoteException catch (error) {
+      _errorMessage = error.message;
+      rethrow;
+    } finally {
+      _cancelToken = null;
+      _isBusy = false;
+      notifyListeners();
+    }
+  }
+
+  void cancel() {
+    _cancelToken?.cancel('Cancelled by user');
   }
 
   Future<void> _run(Future<void> Function() action) async {

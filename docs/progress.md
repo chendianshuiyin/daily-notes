@@ -651,3 +651,16 @@
 
 - Added model coverage for tag-free body previews and a widget test for filtering the home stream from the drawer.
 - Android 36 emulator confirmed the drawer width, hierarchy indentation, counts, selected state, card density, and narrow-screen layout without overflow.
+
+## 2026-07-11 Remote AI transport foundation
+
+### Completed
+
+- Added an OpenAI-compatible chat-completions transport with bounded title, body, existing-tag, and image-caption context.
+- Kept note text inside a JSON data envelope and instructed the model to treat note content as untrusted data rather than application instructions.
+- Added typed tag-result parsing, duplicate normalization, cancellation, and distinct timeout, authentication, quota, malformed-response, and network errors.
+- Connected cancellation and busy/error state to `AiProvider`; no remote request is exposed in the UI before action-time scope confirmation is implemented.
+
+### Verification
+
+- Added transport tests for typed parsing, injection-like note text, authentication failures, malformed responses, and provider cancellation.
