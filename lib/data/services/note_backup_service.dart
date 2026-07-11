@@ -90,6 +90,7 @@ class NoteBackupService {
       updatedAt: _readDate(map['updatedAt'], 'updatedAt', index: index),
       isArchived: isArchived,
       images: images,
+      blocks: _readBlocks(map['blocks'], index),
       tags: _readTags(map['tags'], index),
     );
   }
@@ -129,6 +130,32 @@ class NoteBackupService {
       }
     }
     return images;
+  }
+
+  List<NoteBlock> _readBlocks(Object? value, int noteIndex) {
+    if (value == null) {
+      return const [];
+    }
+    if (value is! List) {
+      throw FormatException('第 ${noteIndex + 1} 条笔记的内容块列表无效。');
+    }
+    final blocks = <NoteBlock>[];
+    for (var blockIndex = 0; blockIndex < value.length; blockIndex++) {
+      final item = value[blockIndex];
+      if (item is! Map) {
+        throw FormatException(
+          '第 ${noteIndex + 1} 条笔记的第 ${blockIndex + 1} 个内容块无效。',
+        );
+      }
+      try {
+        blocks.add(NoteBlock.fromJson(Map<String, dynamic>.from(item)));
+      } on FormatException {
+        throw FormatException(
+          '第 ${noteIndex + 1} 条笔记的第 ${blockIndex + 1} 个内容块无效。',
+        );
+      }
+    }
+    return List.unmodifiable(blocks);
   }
 
   DateTime _readDate(Object? value, String fieldName, {int? index}) {

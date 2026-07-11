@@ -123,10 +123,18 @@ class NoteProvider extends ChangeNotifier {
     required String title,
     required String content,
     List<NoteImage>? images,
+    List<NoteBlock>? blocks,
     List<String>? tags,
   }) async {
     final now = DateTime.now();
     final existing = id == null ? null : await ensureNoteById(id);
+    final noteImages = images ?? existing?.images ?? const <NoteImage>[];
+    final noteBlocks =
+        blocks ??
+        NoteDocument.fromLegacy(
+          content: content.trim(),
+          images: noteImages,
+        ).blocks;
     final note = Note(
       id: existing?.id ?? GuidUtil.generate(),
       title: title.trim(),
@@ -134,7 +142,8 @@ class NoteProvider extends ChangeNotifier {
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
       isArchived: existing?.isArchived ?? false,
-      images: images ?? existing?.images ?? const [],
+      images: noteImages,
+      blocks: noteBlocks,
       tags: tags ?? existing?.tags ?? const [],
     );
 

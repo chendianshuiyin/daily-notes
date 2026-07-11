@@ -12,6 +12,8 @@ import '../../routers/app_router.dart';
 
 enum _HistoryFilter { all, active, archived }
 
+const String _untaggedFilter = '__untagged__';
+
 class HistoryPage extends StatefulWidget {
   const HistoryPage({super.key});
 
@@ -104,6 +106,8 @@ class _HistoryPageState extends State<HistoryPage> {
     List<String> tags,
     Map<String, int> counts,
     int totalCount,
+    int untaggedCount,
+    String? selectedTag,
   ) {
     return showGeneralDialog<void>(
       context: context,
@@ -136,7 +140,8 @@ class _HistoryPageState extends State<HistoryPage> {
                   tags: tags,
                   counts: counts,
                   totalCount: totalCount,
-                  selectedTag: _selectedTag,
+                  untaggedCount: untaggedCount,
+                  selectedTag: selectedTag,
                   showClose: true,
                   onClose: () => Navigator.of(dialogContext).pop(),
                   onSelected: (tag) {
@@ -198,10 +203,33 @@ class _HistoryPageState extends State<HistoryPage> {
           }
           final sortedTags = tagCounts.keys.toList()
             ..sort((first, second) => first.compareTo(second));
-          final notes = _selectedTag == null
+          final untaggedCount = statusFilteredNotes
+              .where((note) => note.tags.isEmpty)
+              .length;
+          final selectedTagAvailable =
+              _selectedTag == null ||
+              (_selectedTag == _untaggedFilter
+                  ? untaggedCount > 0
+                  : tagCounts.containsKey(_selectedTag));
+          final effectiveSelectedTag = selectedTagAvailable
+              ? _selectedTag
+              : null;
+          if (!selectedTagAvailable) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted && _selectedTag != null) {
+                setState(() => _selectedTag = null);
+              }
+            });
+          }
+          final notes = effectiveSelectedTag == null
               ? statusFilteredNotes
+              : effectiveSelectedTag == _untaggedFilter
+              ? statusFilteredNotes.where((note) => note.tags.isEmpty).toList()
               : statusFilteredNotes
-                    .where((note) => Note.matchesTag(note.tags, _selectedTag!))
+                    .where(
+                      (note) =>
+                          Note.matchesTag(note.tags, effectiveSelectedTag),
+                    )
                     .toList();
 
           return Align(
@@ -278,7 +306,8 @@ class _HistoryPageState extends State<HistoryPage> {
                         final results = _HistoryResults(
                           notes: notes,
                           isSearching:
-                              _query.trim().isNotEmpty || _selectedTag != null,
+                              _query.trim().isNotEmpty ||
+                              effectiveSelectedTag != null,
                           onRefresh: noteProvider.loadNotes,
                           onArchive: _archiveNote,
                           onDelete: _deleteNote,
@@ -295,7 +324,8 @@ class _HistoryPageState extends State<HistoryPage> {
                                   tags: sortedTags,
                                   counts: tagCounts,
                                   totalCount: statusFilteredNotes.length,
-                                  selectedTag: _selectedTag,
+                                  untaggedCount: untaggedCount,
+                                  selectedTag: effectiveSelectedTag,
                                   onSelected: (tag) {
                                     setState(() => _selectedTag = tag);
                                   },
@@ -320,11 +350,17 @@ class _HistoryPageState extends State<HistoryPage> {
                                       sortedTags,
                                       tagCounts,
                                       statusFilteredNotes.length,
+                                      untaggedCount,
+                                      effectiveSelectedTag,
                                     ),
                                     icon: const Icon(Icons.tag_outlined),
-                                    label: Text(_selectedTag ?? '标签'),
+                                    label: Text(
+                                      effectiveSelectedTag == _untaggedFilter
+                                          ? '无标签'
+                                          : effectiveSelectedTag ?? '标签',
+                                    ),
                                   ),
-                                  if (_selectedTag != null) ...[
+                                  if (effectiveSelectedTag != null) ...[
                                     const SizedBox(width: 8),
                                     IconButton(
                                       onPressed: () {
@@ -395,6 +431,7 @@ class _TagSidebar extends StatelessWidget {
     required this.tags,
     required this.counts,
     required this.totalCount,
+    required this.untaggedCount,
     required this.selectedTag,
     required this.onSelected,
     this.showClose = false,
@@ -404,6 +441,7 @@ class _TagSidebar extends StatelessWidget {
   final List<String> tags;
   final Map<String, int> counts;
   final int totalCount;
+  final int untaggedCount;
   final String? selectedTag;
   final ValueChanged<String?> onSelected;
   final bool showClose;
@@ -447,6 +485,16 @@ class _TagSidebar extends StatelessWidget {
             onTap: () => onSelected(null),
           ),
           const SizedBox(height: 4),
+          if (untaggedCount > 0) ...[
+            _TagSidebarTile(
+              key: const ValueKey('historyTag-untagged'),
+              label: '无标签',
+              count: untaggedCount,
+              selected: selectedTag == _untaggedFilter,
+              onTap: () => onSelected(_untaggedFilter),
+            ),
+            const SizedBox(height: 4),
+          ],
           for (final tag in tags)
             _TagSidebarTile(
               key: ValueKey('historyTag-$tag'),
@@ -456,7 +504,7 @@ class _TagSidebar extends StatelessWidget {
               selected: selectedTag == tag,
               onTap: () => onSelected(tag),
             ),
-          if (tags.isEmpty)
+          if (tags.isEmpty && untaggedCount == 0)
             Padding(
               padding: const EdgeInsets.all(12),
               child: Text('暂无标签', style: Theme.of(context).textTheme.bodySmall),

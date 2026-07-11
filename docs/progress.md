@@ -516,3 +516,26 @@
 - Windows workflow run `29118667532`: passed.
 - Linux workflow run `29118182287`: passed.
 - GitHub reports all six assets as uploaded.
+
+## 2026-07-11 Editor 2.0 design and foundations
+
+### Completed
+
+- Defined the responsive product shell, capture and review flows, block editor schema, migration strategy, and privacy-first AI boundaries under `docs/design/`.
+- Reworked voice input into explicit starting, listening, and review phases; recognized text is inserted only after confirmation and can be retried or discarded.
+- Added installed-locale selection and cursor-safe transcript insertion without overwriting existing note text.
+- Added an `Untagged` sidebar filter and automatic recovery from stale tag selections after search or status changes.
+- Added a versioned V2 note-block model with legacy text/image derivation and backup round-trip support.
+
+### Verification
+
+- `flutter analyze`: passed with no issues.
+- `flutter test`: 34 tests passed.
+- Android and Web release builds passed; the Web Wasm dry run also passed.
+- Android 36 emulator preserved the existing three-note database across upgrade installation.
+- Emulator UI checks confirmed the mobile tag side sheet, two-note untagged result, first-use microphone permission, fixed listening panel, locale indicator, disabled save state, and no-speech fallback without overflow.
+
+### Remaining Work
+
+- Integrate the block editor UI, lightweight Markdown shortcuts and preview, and freely ordered multi-image blocks.
+- Implement opt-in AI tag, cleanup, related-note, question, and review features after the editor interaction is stable.

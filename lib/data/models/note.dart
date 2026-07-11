@@ -1,4 +1,5 @@
 import 'note_image.dart';
+import 'note_block.dart';
 
 class Note {
   const Note({
@@ -9,8 +10,10 @@ class Note {
     required this.updatedAt,
     this.isArchived = false,
     this.images = const [],
+    List<NoteBlock> blocks = const [],
     List<String> tags = const [],
-  }) : _tags = tags;
+  }) : _blocks = blocks,
+       _tags = tags;
 
   final String id;
   final String title;
@@ -19,7 +22,15 @@ class Note {
   final DateTime updatedAt;
   final bool isArchived;
   final List<NoteImage> images;
+  final List<NoteBlock> _blocks;
   final List<String> _tags;
+
+  List<NoteBlock> get blocks {
+    if (_blocks.isNotEmpty) {
+      return List.unmodifiable(_blocks);
+    }
+    return NoteDocument.fromLegacy(content: content, images: images).blocks;
+  }
 
   String get displayTitle {
     final value = title.trim();
@@ -98,6 +109,7 @@ class Note {
     DateTime? updatedAt,
     bool? isArchived,
     List<NoteImage>? images,
+    List<NoteBlock>? blocks,
     List<String>? tags,
   }) {
     return Note(
@@ -108,6 +120,7 @@ class Note {
       updatedAt: updatedAt ?? this.updatedAt,
       isArchived: isArchived ?? this.isArchived,
       images: images ?? this.images,
+      blocks: blocks ?? _blocks,
       tags: tags ?? _tags,
     );
   }
@@ -121,6 +134,8 @@ class Note {
       'updatedAt': updatedAt.toIso8601String(),
       'isArchived': isArchived,
       'images': images.map((image) => image.toJson()).toList(),
+      'contentVersion': NoteDocument.contentVersion,
+      'blocks': blocks.map((block) => block.toJson()).toList(),
       'tags': tags,
     };
   }
@@ -134,6 +149,7 @@ class Note {
       updatedAt: _readDate(json['updatedAt']),
       isArchived: json['isArchived'] as bool? ?? false,
       images: _readImages(json['images']),
+      blocks: _readBlocks(json['blocks']),
       tags: _readTags(json['tags']),
     );
   }
@@ -169,5 +185,23 @@ class Note {
       return const [];
     }
     return normalizeTags(value.whereType<String>());
+  }
+
+  static List<NoteBlock> _readBlocks(Object? value) {
+    if (value is! List) {
+      return const [];
+    }
+    final blocks = <NoteBlock>[];
+    for (final item in value) {
+      if (item is! Map) {
+        continue;
+      }
+      try {
+        blocks.add(NoteBlock.fromJson(Map<String, dynamic>.from(item)));
+      } on FormatException {
+        return const [];
+      }
+    }
+    return List.unmodifiable(blocks);
   }
 }

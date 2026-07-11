@@ -5,10 +5,13 @@ import 'package:provider/provider.dart';
 import 'package:speech_to_text/speech_recognition_error.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
+import '../../../core/utils/utils.dart';
 import '../../../data/models/models.dart';
 import '../../../data/services/services.dart';
 import '../../providers/providers.dart';
 import '../../routers/app_router.dart';
+
+enum _VoicePhase { idle, starting, listening, reviewing }
 
 /// 编辑页面
 ///
@@ -35,16 +38,31 @@ class _EditorPageState extends State<EditorPage> {
   bool _isDirty = false;
   bool _allowPop = false;
   bool _isPickingImages = false;
-  bool _isStartingVoice = false;
-  bool _isListening = false;
+  _VoicePhase _voicePhase = _VoicePhase.idle;
   Note? _currentNote;
   List<NoteImage> _images = [];
   String _initialTitle = '';
   String _initialContent = '';
   String _initialImageIds = '';
-  String _voiceBaseContent = '';
+  String _voiceTranscript = '';
+  int _voiceInsertionOffset = 0;
+  List<LocaleName> _voiceLocales = const [];
+  String? _voiceLocaleId;
+  String _voiceLocaleLabel = '系统语言';
 
   bool get _isNewNote => widget.noteId == null;
+
+  bool get _voiceSessionActive => _voicePhase != _VoicePhase.idle;
+
+  bool get _isListening => _voicePhase == _VoicePhase.listening;
+
+  List<LocaleName> get _preferredVoiceLocales {
+    final preferred = _voiceLocales.where((locale) {
+      final id = locale.localeId.toLowerCase();
+      return id.startsWith('zh') || id.startsWith('en');
+    }).toList();
+    return preferred.isNotEmpty ? preferred : _voiceLocales.take(8).toList();
+  }
 
   bool get _voiceInputSupported {
     return kIsWeb ||
@@ -116,6 +134,10 @@ class _EditorPageState extends State<EditorPage> {
   }
 
   Future<void> _saveNote() async {
+    if (_voiceSessionActive) {
+      _showError('请先插入或丢弃当前语音识别结果');
+      return;
+    }
     final title = _titleController.text.trim();
     final content = _contentController.text.trim();
 
@@ -353,14 +375,26 @@ class _EditorPageState extends State<EditorPage> {
       return;
     }
     if (_isListening) {
-      await _speech.stop();
-      if (mounted) {
-        setState(() => _isListening = false);
-      }
+      await _stopVoiceInput();
+      return;
+    }
+    if (_voicePhase == _VoicePhase.reviewing) {
       return;
     }
 
-    setState(() => _isStartingVoice = true);
+    await _startVoiceInput();
+  }
+
+  Future<void> _startVoiceInput() async {
+    FocusScope.of(context).unfocus();
+    final selection = _contentController.selection;
+    _voiceInsertionOffset = selection.isValid
+        ? selection.start.clamp(0, _contentController.text.length)
+        : _contentController.text.length;
+    setState(() {
+      _voicePhase = _VoicePhase.starting;
+      _voiceTranscript = '';
+    });
     try {
       final available = await _speech.initialize(
         onStatus: _handleSpeechStatus,
@@ -370,15 +404,27 @@ class _EditorPageState extends State<EditorPage> {
         return;
       }
       if (!available) {
+        setState(() => _voicePhase = _VoicePhase.idle);
         _showError('语音输入不可用，请检查麦克风权限和系统语音服务');
         return;
       }
 
-      _voiceBaseContent = _contentController.text;
+      final locales = await _speech.locales();
+      final systemLocale = await _speech.systemLocale();
+      final selectedLocale = _voiceLocaleId == null
+          ? systemLocale
+          : locales
+                .where((locale) => locale.localeId == _voiceLocaleId)
+                .firstOrNull;
+      _voiceLocales = locales;
+      _voiceLocaleId = selectedLocale?.localeId;
+      _voiceLocaleLabel = selectedLocale?.name ?? '系统语言';
+
       await _speech.listen(
         onResult: _handleSpeechResult,
         listenOptions: SpeechListenOptions(
           listenMode: ListenMode.dictation,
+          localeId: _voiceLocaleId,
           partialResults: true,
           cancelOnError: true,
           listenFor: const Duration(minutes: 1),
@@ -386,27 +432,50 @@ class _EditorPageState extends State<EditorPage> {
         ),
       );
       if (mounted) {
-        setState(() => _isListening = _speech.isListening);
+        setState(() {
+          _voicePhase = _speech.isListening
+              ? _VoicePhase.listening
+              : _VoicePhase.idle;
+        });
+        if (!_speech.isListening) {
+          _showError('语音服务没有开始监听，请检查权限后重试');
+        }
       }
     } catch (error, stackTrace) {
       debugPrint('Failed to start speech recognition: $error\n$stackTrace');
       if (mounted) {
+        setState(() => _voicePhase = _VoicePhase.idle);
         _showError('无法启动语音输入，请稍后重试');
       }
-    } finally {
-      if (mounted) {
-        setState(() => _isStartingVoice = false);
-      }
     }
+  }
+
+  Future<void> _stopVoiceInput() async {
+    await _speech.stop();
+    if (!mounted) {
+      return;
+    }
+    _finishVoiceRecognition(showEmptyMessage: true);
   }
 
   void _handleSpeechStatus(String status) {
     if (!mounted) {
       return;
     }
-    final listening = status == SpeechToText.listeningStatus;
-    if (_isListening != listening) {
-      setState(() => _isListening = listening);
+    if (status == SpeechToText.listeningStatus) {
+      if (_voicePhase != _VoicePhase.listening) {
+        setState(() => _voicePhase = _VoicePhase.listening);
+      }
+      return;
+    }
+    if ((status == SpeechToText.doneStatus ||
+            status == SpeechToText.notListeningStatus) &&
+        _voicePhase == _VoicePhase.listening) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _voicePhase == _VoicePhase.listening) {
+          _finishVoiceRecognition(showEmptyMessage: true);
+        }
+      });
     }
   }
 
@@ -414,11 +483,16 @@ class _EditorPageState extends State<EditorPage> {
     if (!mounted) {
       return;
     }
-    setState(() => _isListening = false);
+    final hasTranscript = _voiceTranscript.trim().isNotEmpty;
+    setState(() {
+      _voicePhase = hasTranscript ? _VoicePhase.reviewing : _VoicePhase.idle;
+    });
     final message = error.errorMsg.contains('permission')
         ? '麦克风或语音识别权限未授权'
         : error.errorMsg.contains('network')
         ? '语音识别网络不可用'
+        : hasTranscript
+        ? '识别已中断，可插入当前结果或重试'
         : '没有识别到语音，请重试';
     _showError(message);
   }
@@ -428,17 +502,79 @@ class _EditorPageState extends State<EditorPage> {
     if (!mounted || words.isEmpty) {
       return;
     }
-    final separator = _voiceBaseContent.isEmpty
-        ? ''
-        : RegExp(r'\s$').hasMatch(_voiceBaseContent)
-        ? ''
-        : '\n';
-    final text = '$_voiceBaseContent$separator$words';
-    _contentController.value = TextEditingValue(
-      text: text,
-      selection: TextSelection.collapsed(offset: text.length),
+    setState(() {
+      _voiceTranscript = words;
+      if (result.finalResult) {
+        _voicePhase = _VoicePhase.reviewing;
+      }
+    });
+  }
+
+  void _finishVoiceRecognition({required bool showEmptyMessage}) {
+    final hasTranscript = _voiceTranscript.trim().isNotEmpty;
+    setState(() {
+      _voicePhase = hasTranscript ? _VoicePhase.reviewing : _VoicePhase.idle;
+    });
+    if (!hasTranscript && showEmptyMessage) {
+      _showError('没有识别到语音，请重试');
+    }
+  }
+
+  void _insertVoiceTranscript() {
+    final transcript = _voiceTranscript.trim();
+    if (transcript.isEmpty) {
+      _discardVoiceTranscript();
+      return;
+    }
+    final value = _contentController.value;
+    final edit = VoiceTranscriptUtil.insert(
+      source: value.text,
+      offset: _voiceInsertionOffset,
+      transcript: transcript,
     );
+    _contentController.value = value.copyWith(
+      text: edit.text,
+      selection: TextSelection.collapsed(offset: edit.cursorOffset),
+      composing: TextRange.empty,
+    );
+    setState(() {
+      _voicePhase = _VoicePhase.idle;
+      _voiceTranscript = '';
+    });
     _updateDirtyState();
+  }
+
+  Future<void> _retryVoiceInput() async {
+    await _speech.cancel();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _voicePhase = _VoicePhase.idle;
+      _voiceTranscript = '';
+    });
+    await _startVoiceInput();
+  }
+
+  Future<void> _selectVoiceLocale(String localeId) async {
+    final locale = _voiceLocales
+        .where((candidate) => candidate.localeId == localeId)
+        .firstOrNull;
+    if (locale == null) {
+      return;
+    }
+    setState(() {
+      _voiceLocaleId = locale.localeId;
+      _voiceLocaleLabel = locale.name;
+    });
+  }
+
+  void _discardVoiceTranscript() {
+    _speech.cancel();
+    setState(() {
+      _voicePhase = _VoicePhase.idle;
+      _voiceTranscript = '';
+    });
   }
 
   void _removeImage(NoteImage image) {
@@ -482,6 +618,41 @@ class _EditorPageState extends State<EditorPage> {
   }
 
   Future<void> _requestLeaveEditor() async {
+    if (_voiceSessionActive) {
+      final shouldDiscardVoice = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('放弃语音输入？'),
+          content: Text(
+            _voiceTranscript.trim().isEmpty
+                ? '语音识别仍在进行，离开将停止本次听写。'
+                : '识别结果尚未插入正文，离开后将丢失。',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('继续处理'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('放弃语音'),
+            ),
+          ],
+        ),
+      );
+      if (shouldDiscardVoice != true || !mounted) {
+        return;
+      }
+      await _speech.cancel();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _voicePhase = _VoicePhase.idle;
+        _voiceTranscript = '';
+      });
+    }
+
     if (!_isDirty) {
       _popEditor();
       return;
@@ -667,6 +838,7 @@ class _EditorPageState extends State<EditorPage> {
                                   key: const ValueKey('noteContentField'),
                                   controller: _contentController,
                                   onChanged: _handleDraftChanged,
+                                  enabled: !_voiceSessionActive,
                                   keyboardType: TextInputType.multiline,
                                   textInputAction: TextInputAction.newline,
                                   maxLines: null,
@@ -684,6 +856,21 @@ class _EditorPageState extends State<EditorPage> {
                                   ),
                                 ),
                               ),
+                              if (_voiceSessionActive) ...[
+                                const Divider(),
+                                _VoiceInputPanel(
+                                  phase: _voicePhase,
+                                  transcript: _voiceTranscript,
+                                  localeLabel: _voiceLocaleLabel,
+                                  locales: _preferredVoiceLocales,
+                                  selectedLocaleId: _voiceLocaleId,
+                                  onStop: _stopVoiceInput,
+                                  onInsert: _insertVoiceTranscript,
+                                  onRetry: _retryVoiceInput,
+                                  onDiscard: _discardVoiceTranscript,
+                                  onLocaleSelected: _selectVoiceLocale,
+                                ),
+                              ],
                               if (_images.isNotEmpty) ...[
                                 const SizedBox(height: 12),
                                 _AttachmentStrip(
@@ -754,10 +941,13 @@ class _EditorPageState extends State<EditorPage> {
                           ),
                           IconButton(
                             key: const ValueKey('voiceInputButton'),
-                            onPressed: !_voiceInputSupported || _isStartingVoice
+                            onPressed:
+                                !_voiceInputSupported ||
+                                    _voicePhase == _VoicePhase.starting ||
+                                    _voicePhase == _VoicePhase.reviewing
                                 ? null
                                 : _toggleVoiceInput,
-                            icon: _isStartingVoice
+                            icon: _voicePhase == _VoicePhase.starting
                                 ? const SizedBox.square(
                                     dimension: 20,
                                     child: CircularProgressIndicator(
@@ -774,21 +964,32 @@ class _EditorPageState extends State<EditorPage> {
                                   ),
                             tooltip: !_voiceInputSupported
                                 ? '当前平台不支持语音输入'
+                                : _voicePhase == _VoicePhase.starting
+                                ? '正在准备语音输入'
+                                : _voicePhase == _VoicePhase.reviewing
+                                ? '请先处理识别结果'
                                 : _isListening
                                 ? '停止语音输入'
                                 : '开始语音输入',
                           ),
                           const Spacer(),
-                          Text(
-                            _isListening
-                                ? '听写中'
-                                : '${_contentController.text.trim().length} 字',
-                            style: Theme.of(context).textTheme.bodySmall,
+                          SizedBox(
+                            width: 64,
+                            child: Text(
+                              _isListening
+                                  ? '听写中'
+                                  : '${_contentController.text.trim().length} 字',
+                              textAlign: TextAlign.end,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
                           ),
                           const SizedBox(width: 10),
                           FilledButton.icon(
                             key: const ValueKey('saveNoteButton'),
-                            onPressed: _isSaving ? null : _saveNote,
+                            onPressed: _isSaving || _voiceSessionActive
+                                ? null
+                                : _saveNote,
                             icon: _isSaving
                                 ? const SizedBox.square(
                                     dimension: 16,
@@ -812,6 +1013,167 @@ class _EditorPageState extends State<EditorPage> {
   String _editorDateLabel() {
     final date = _currentNote?.createdAt ?? DateTime.now();
     return '${date.year}年${date.month}月${date.day}日';
+  }
+}
+
+class _VoiceInputPanel extends StatelessWidget {
+  const _VoiceInputPanel({
+    required this.phase,
+    required this.transcript,
+    required this.localeLabel,
+    required this.locales,
+    required this.selectedLocaleId,
+    required this.onStop,
+    required this.onInsert,
+    required this.onRetry,
+    required this.onDiscard,
+    required this.onLocaleSelected,
+  });
+
+  final _VoicePhase phase;
+  final String transcript;
+  final String localeLabel;
+  final List<LocaleName> locales;
+  final String? selectedLocaleId;
+  final Future<void> Function() onStop;
+  final VoidCallback onInsert;
+  final Future<void> Function() onRetry;
+  final VoidCallback onDiscard;
+  final Future<void> Function(String localeId) onLocaleSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isStarting = phase == _VoicePhase.starting;
+    final isListening = phase == _VoicePhase.listening;
+    final canChooseLocale =
+        phase == _VoicePhase.reviewing && locales.isNotEmpty;
+    return Container(
+      key: const ValueKey('voiceInputPanel'),
+      height: 136,
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      color: colorScheme.surfaceContainer,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              if (isStarting)
+                const SizedBox.square(
+                  dimension: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else
+                Icon(
+                  isListening
+                      ? Icons.graphic_eq
+                      : Icons.record_voice_over_outlined,
+                  size: 18,
+                  color: isListening ? colorScheme.error : colorScheme.primary,
+                ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  isStarting
+                      ? '正在准备语音服务'
+                      : isListening
+                      ? '正在听写'
+                      : '检查识别结果',
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
+              ),
+              PopupMenuButton<String>(
+                key: const ValueKey('voiceLocaleMenu'),
+                enabled: canChooseLocale,
+                tooltip: canChooseLocale ? '选择识别语言并重试' : '当前识别语言',
+                initialValue: selectedLocaleId,
+                onSelected: onLocaleSelected,
+                itemBuilder: (context) => [
+                  for (final locale in locales)
+                    PopupMenuItem(
+                      value: locale.localeId,
+                      child: Text(locale.name),
+                    ),
+                ],
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 150),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.language_outlined, size: 16),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          localeLabel,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.labelMedium,
+                        ),
+                      ),
+                      if (canChooseLocale)
+                        const Icon(Icons.arrow_drop_down, size: 18),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Expanded(
+            child: SingleChildScrollView(
+              child: Text(
+                transcript.trim().isEmpty
+                    ? isStarting
+                          ? '正在连接系统语音识别...'
+                          : '请开始说话，识别结果会先显示在这里。'
+                    : transcript,
+                key: const ValueKey('voiceTranscriptText'),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: transcript.trim().isEmpty
+                      ? colorScheme.onSurfaceVariant
+                      : colorScheme.onSurface,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          SizedBox(
+            height: 36,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                if (isListening)
+                  OutlinedButton.icon(
+                    key: const ValueKey('stopVoiceInputButton'),
+                    onPressed: onStop,
+                    icon: const Icon(Icons.stop_circle_outlined, size: 18),
+                    label: const Text('停止'),
+                  )
+                else if (phase == _VoicePhase.reviewing) ...[
+                  TextButton(
+                    key: const ValueKey('discardVoiceInputButton'),
+                    onPressed: onDiscard,
+                    child: const Text('丢弃'),
+                  ),
+                  TextButton(
+                    key: const ValueKey('retryVoiceInputButton'),
+                    onPressed: onRetry,
+                    child: const Text('重试'),
+                  ),
+                  const Spacer(),
+                  FilledButton.icon(
+                    key: const ValueKey('insertVoiceInputButton'),
+                    onPressed: transcript.trim().isEmpty ? null : onInsert,
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('插入正文'),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

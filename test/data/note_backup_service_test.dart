@@ -40,6 +40,9 @@ void main() {
     expect(backup.notes.single.isArchived, isTrue);
     expect(backup.notes.single.tags, ['#工作/计划']);
     expect(backup.notes.single.images.single.name, 'photo.jpg');
+    expect(backup.notes.single.blocks, hasLength(2));
+    expect(backup.notes.single.blocks.last.type, NoteBlockType.image);
+    expect(backup.notes.single.blocks.last.imageId, 'image-1');
   });
 
   test('rejects unsupported backup formats', () {

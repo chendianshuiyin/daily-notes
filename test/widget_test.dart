@@ -250,6 +250,48 @@ void main() {
     expect(contentField.controller?.text, '原始正文\n\n#迁移/待办');
   });
 
+  testWidgets('Filters untagged notes and clears a stale tag filter', (
+    WidgetTester tester,
+  ) async {
+    final date = DateTime.now();
+    await testRepository.upsertNote(
+      Note(
+        id: 'untagged-note',
+        title: '尚未整理',
+        content: '没有标签的内容',
+        createdAt: date,
+        updatedAt: date,
+      ),
+    );
+    await testRepository.upsertNote(
+      Note(
+        id: 'tagged-note',
+        title: '已经整理',
+        content: '#项目 已归类',
+        createdAt: date,
+        updatedAt: date,
+      ),
+    );
+
+    await tester.pumpWidget(testApp);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('历史记录'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('historyTag-untagged')));
+    await tester.pumpAndSettle();
+    expect(find.text('尚未整理'), findsOneWidget);
+    expect(find.text('已经整理'), findsNothing);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('historySearchField')),
+      '已经整理',
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('已经整理'), findsWidgets);
+    expect(find.text('尚未整理'), findsNothing);
+  });
+
   testWidgets('Persists theme mode from settings', (WidgetTester tester) async {
     await tester.pumpWidget(testApp);
     await tester.pumpAndSettle();
