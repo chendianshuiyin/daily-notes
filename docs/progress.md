@@ -606,3 +606,18 @@
 - `flutter analyze`: passed with no issues.
 - Android release APK built successfully at 60.8 MB.
 - Web JavaScript release built successfully with `--no-wasm-dry-run`.
+
+## 2026-07-11 Private local tag suggestions
+
+### Completed
+
+- Added deterministic on-device tag suggestions that reuse existing active-note tags and never perform a network request.
+- Ranked suggestions from direct topic mentions and related-note term overlap while excluding archived notes, the current note, and tags already in the draft.
+- Added a confirmation sheet with per-tag reasons, selectable suggestions, and an exact insertion preview.
+- Inserted confirmed `#tags` into the body at the captured editor selection so tags remain part of the note text.
+
+### Verification
+
+- Added unit coverage for ranking and privacy boundaries plus a widget test for the full confirm-and-insert flow.
+- `flutter test`: 49 tests passed; `flutter analyze`: passed with no issues.
+- Android release APK built successfully at 61.1 MB and the Web JavaScript release completed.

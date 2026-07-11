@@ -169,6 +169,41 @@ void main() {
     );
   });
 
+  testWidgets('Suggests and confirms private local tags', (
+    WidgetTester tester,
+  ) async {
+    final now = DateTime.now();
+    await testRepository.upsertNote(
+      Note(
+        id: 'tag-source',
+        title: 'Flutter 编辑器记录',
+        content: 'Flutter 编辑器状态管理和发布检查',
+        createdAt: now,
+        updatedAt: now,
+        tags: const ['#开发/Flutter'],
+      ),
+    );
+    await tester.pumpWidget(testApp);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('新建笔记'));
+    await tester.pumpAndSettle();
+    await enterNoteBody(tester, '继续完善 Flutter 编辑器');
+
+    await tester.tap(find.byTooltip('更多操作'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('smartTagMenuItem')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('本次分析仅在设备上进行'), findsOneWidget);
+    expect(find.text('#开发/Flutter'), findsWidgets);
+    expect(find.textContaining('将插入：#开发/Flutter'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('applySmartTagsButton')));
+    await tester.pumpAndSettle();
+
+    final editor = tester.widget<NoteBlockEditor>(find.byType(NoteBlockEditor));
+    expect(editor.controller.markdown, contains('#开发/Flutter'));
+  });
+
   testWidgets('Displays and removes an existing image attachment', (
     WidgetTester tester,
   ) async {

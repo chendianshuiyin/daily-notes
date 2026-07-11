@@ -33,6 +33,7 @@ class _EditorPageState extends State<EditorPage> {
   final TextEditingController _contentController = TextEditingController();
   final NoteImageService _imageService = const NoteImageService();
   final NoteMarkdownCodec _markdownCodec = const NoteMarkdownCodec();
+  final LocalAiOrganizer _localAiOrganizer = const LocalAiOrganizer();
   final SpeechToText _speech = SpeechToText();
   late NoteBlockEditorController _blockController;
 
@@ -822,6 +823,124 @@ class _EditorPageState extends State<EditorPage> {
     );
   }
 
+  Future<void> _showSmartTagSuggestions() async {
+    _blockController.captureInsertionSelection();
+    final suggestions = _localAiOrganizer.suggestTags(
+      title: _titleController.text,
+      content: _blockController.markdown,
+      notes: context.read<NoteProvider>().notes,
+      currentNoteId: _currentNote?.id ?? widget.noteId,
+    );
+    if (suggestions.isEmpty) {
+      _showError('暂时没有合适的已有标签建议');
+      return;
+    }
+    final selected = suggestions.map((item) => item.tag).toSet();
+    final tags = await showModalBottomSheet<List<String>>(
+      context: context,
+      constraints: const BoxConstraints(maxWidth: 720),
+      isScrollControlled: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheetState) {
+          final preview = suggestions
+              .where((item) => selected.contains(item.tag))
+              .map((item) => item.tag)
+              .join(' ');
+          return SafeArea(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                16,
+                12,
+                16,
+                16 + MediaQuery.viewInsetsOf(sheetContext).bottom,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.auto_awesome_outlined,
+                        color: Theme.of(sheetContext).colorScheme.secondary,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '智能标签',
+                        style: Theme.of(sheetContext).textTheme.titleMedium,
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        onPressed: () => Navigator.of(sheetContext).pop(),
+                        icon: const Icon(Icons.close),
+                        tooltip: '关闭智能标签',
+                      ),
+                    ],
+                  ),
+                  Text(
+                    '本次分析仅在设备上进行',
+                    style: Theme.of(sheetContext).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 8),
+                  for (final suggestion in suggestions)
+                    CheckboxListTile(
+                      key: ValueKey('smartTag-${suggestion.tag}'),
+                      value: selected.contains(suggestion.tag),
+                      contentPadding: EdgeInsets.zero,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      title: Text(suggestion.tag),
+                      subtitle: Text(suggestion.reason),
+                      onChanged: (checked) {
+                        setSheetState(() {
+                          if (checked ?? false) {
+                            selected.add(suggestion.tag);
+                          } else {
+                            selected.remove(suggestion.tag);
+                          }
+                        });
+                      },
+                    ),
+                  Container(
+                    key: const ValueKey('smartTagPreview'),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Theme.of(
+                        sheetContext,
+                      ).colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(preview.isEmpty ? '未选择标签' : '将插入：$preview'),
+                  ),
+                  const SizedBox(height: 12),
+                  FilledButton.icon(
+                    key: const ValueKey('applySmartTagsButton'),
+                    onPressed: selected.isEmpty
+                        ? null
+                        : () => Navigator.of(sheetContext).pop(
+                            suggestions
+                                .where((item) => selected.contains(item.tag))
+                                .map((item) => item.tag)
+                                .toList(),
+                          ),
+                    icon: const Icon(Icons.add),
+                    label: const Text('插入所选标签'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+    if (tags == null || tags.isEmpty) {
+      return;
+    }
+    await _blockController.insertText(
+      ' ${tags.join(' ')}',
+      atCapturedSelection: true,
+    );
+  }
+
   Future<void> _requestLeaveEditor() async {
     if (_voiceSessionActive) {
       final shouldDiscardVoice = await showDialog<bool>(
@@ -935,6 +1054,8 @@ class _EditorPageState extends State<EditorPage> {
                   _showMarkdownPreview();
                 } else if (value == 'format') {
                   _showFormattingTools();
+                } else if (value == 'smart-tags') {
+                  _showSmartTagSuggestions();
                 } else if (value == 'archive') {
                   _archiveNote();
                 } else if (value == 'delete') {
@@ -958,6 +1079,15 @@ class _EditorPageState extends State<EditorPage> {
                     contentPadding: EdgeInsets.zero,
                     leading: Icon(Icons.format_bold),
                     title: Text('格式工具'),
+                  ),
+                ),
+                const PopupMenuItem(
+                  key: ValueKey('smartTagMenuItem'),
+                  value: 'smart-tags',
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.auto_awesome_outlined),
+                    title: Text('智能标签'),
                   ),
                 ),
                 PopupMenuItem(
