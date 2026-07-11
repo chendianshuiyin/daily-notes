@@ -680,3 +680,17 @@
 - Added a widget test proving the remote client is not called before scope confirmation and that returned tags remain unapplied until the user confirms insertion.
 - `flutter test`: 59 tests passed; `flutter analyze`: passed with no issues.
 - Android release APK built successfully at 61.3 MB and the Web JavaScript release completed.
+
+## 2026-07-11 Explainable related notes
+
+### Completed
+
+- Added private on-device related-note ranking from shared text terms and inline tags, with no remote request or embedding dependency.
+- Excluded the current note and archived notes, limited results to five, and attached a deterministic match reason to every result.
+- Added an editor bottom sheet that shows real note titles and clean body previews and opens the selected source note.
+
+### Verification
+
+- Added unit coverage for ranking/exclusion rules and a widget test that rejects unrelated content and opens the selected source note.
+- `flutter test`: 61 tests passed; `flutter analyze`: passed with no issues.
+- Android release APK built successfully at 61.3 MB.

@@ -55,4 +55,28 @@ void main() {
       isEmpty,
     );
   });
+
+  test('finds related active notes with a transparent reason', () {
+    final suggestions = organizer.findRelatedNotes(
+      title: 'Flutter 发布计划',
+      content: '检查 Flutter 编辑器和 WebDAV 同步 #开发',
+      currentNoteId: 'current',
+      notes: [
+        note('current', 'Flutter 编辑器', ['#开发']),
+        note('related', 'Flutter 编辑器发布和同步检查', ['#开发']),
+        note('weak', 'Flutter 布局', ['#其他']),
+        note('unrelated', '周末采购', ['#生活']),
+        note('archived', 'Flutter 发布', ['#开发']).copyWith(isArchived: true),
+      ],
+    );
+
+    expect(suggestions.first.noteId, 'related');
+    expect(suggestions.first.reason, '共同标签 #开发');
+    expect(suggestions.map((item) => item.noteId), isNot(contains('current')));
+    expect(suggestions.map((item) => item.noteId), isNot(contains('archived')));
+    expect(
+      suggestions.map((item) => item.noteId),
+      isNot(contains('unrelated')),
+    );
+  });
 }

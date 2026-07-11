@@ -1085,6 +1085,103 @@ class _EditorPageState extends State<EditorPage> {
     );
   }
 
+  Future<void> _showRelatedNotes() async {
+    final noteProvider = context.read<NoteProvider>();
+    final suggestions = _localAiOrganizer.findRelatedNotes(
+      title: _titleController.text,
+      content: _blockController.markdown,
+      notes: noteProvider.activeNotes,
+      currentNoteId: _currentNote?.id ?? widget.noteId,
+    );
+    final related = suggestions
+        .map((suggestion) {
+          final note = noteProvider.noteById(suggestion.noteId);
+          return note == null ? null : (note: note, suggestion: suggestion);
+        })
+        .whereType<({Note note, RelatedNoteSuggestion suggestion})>()
+        .toList();
+    if (related.isEmpty) {
+      _showError('暂时没有找到相关笔记');
+      return;
+    }
+    final noteId = await showModalBottomSheet<String>(
+      context: context,
+      constraints: const BoxConstraints(maxWidth: 720),
+      isScrollControlled: true,
+      builder: (sheetContext) => SafeArea(
+        child: SizedBox(
+          height: MediaQuery.sizeOf(sheetContext).height * 0.68,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+                child: Row(
+                  children: [
+                    const Icon(Icons.hub_outlined),
+                    const SizedBox(width: 8),
+                    Text(
+                      '相关笔记',
+                      style: Theme.of(sheetContext).textTheme.titleMedium,
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      onPressed: () => Navigator.of(sheetContext).pop(),
+                      icon: const Icon(Icons.close),
+                      tooltip: '关闭相关笔记',
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 20),
+                  itemCount: related.length,
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(height: 8),
+                  itemBuilder: (context, index) {
+                    final item = related[index];
+                    return Card(
+                      child: ListTile(
+                        key: ValueKey('relatedNote-${item.note.id}'),
+                        title: Text(item.note.displayTitle),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (item.note.bodyPreview.isNotEmpty)
+                              Text(
+                                item.note.bodyPreview,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            const SizedBox(height: 5),
+                            Text(
+                              item.suggestion.reason,
+                              style: TextStyle(
+                                color: Theme.of(
+                                  sheetContext,
+                                ).colorScheme.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () =>
+                            Navigator.of(sheetContext).pop(item.note.id),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (noteId != null && mounted) {
+      context.push('${AppRouter.editor}?noteId=${Uri.encodeComponent(noteId)}');
+    }
+  }
+
   Future<void> _requestLeaveEditor() async {
     if (_voiceSessionActive) {
       final shouldDiscardVoice = await showDialog<bool>(
@@ -1203,6 +1300,8 @@ class _EditorPageState extends State<EditorPage> {
                   _showLocalTagSuggestions();
                 } else if (value == 'remote-tags') {
                   _showRemoteTagSuggestions();
+                } else if (value == 'related-notes') {
+                  _showRelatedNotes();
                 } else if (value == 'archive') {
                   _archiveNote();
                 } else if (value == 'delete') {
@@ -1247,6 +1346,15 @@ class _EditorPageState extends State<EditorPage> {
                       title: Text('AI 标签建议'),
                     ),
                   ),
+                const PopupMenuItem(
+                  key: ValueKey('relatedNotesMenuItem'),
+                  value: 'related-notes',
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.hub_outlined),
+                    title: Text('相关笔记'),
+                  ),
+                ),
                 PopupMenuItem(
                   enabled: !_isNewNote,
                   value: 'archive',

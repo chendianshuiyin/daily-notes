@@ -12,6 +12,18 @@ class TagSuggestion {
   final int score;
 }
 
+class RelatedNoteSuggestion {
+  const RelatedNoteSuggestion({
+    required this.noteId,
+    required this.reason,
+    required this.score,
+  });
+
+  final String noteId;
+  final String reason;
+  final int score;
+}
+
 /// Provides private, deterministic organization suggestions without networking.
 class LocalAiOrganizer {
   const LocalAiOrganizer();
@@ -88,6 +100,49 @@ class LocalAiOrganizer {
         );
       }),
     );
+  }
+
+  List<RelatedNoteSuggestion> findRelatedNotes({
+    required String title,
+    required String content,
+    required Iterable<Note> notes,
+    String? currentNoteId,
+    int limit = 5,
+  }) {
+    final sourceTerms = _terms('$title\n$content');
+    final sourceTags = Note.extractTags(
+      '$title\n$content',
+    ).map((tag) => tag.toLowerCase()).toSet();
+    if (sourceTerms.isEmpty || limit <= 0) {
+      return const [];
+    }
+    final suggestions = <RelatedNoteSuggestion>[];
+    for (final note in notes) {
+      if (note.id == currentNoteId || note.isArchived) {
+        continue;
+      }
+      final sharedTerms = sourceTerms.intersection(
+        _terms('${note.title}\n${note.content}'),
+      );
+      final sharedTags = sourceTags.intersection(
+        note.tags.map((tag) => tag.toLowerCase()).toSet(),
+      );
+      final score = sharedTerms.length * 3 + sharedTags.length * 8;
+      if (score == 0) {
+        continue;
+      }
+      final reason = sharedTags.isNotEmpty
+          ? '共同标签 ${sharedTags.first}'
+          : '有 ${sharedTerms.length} 个相关词组';
+      suggestions.add(
+        RelatedNoteSuggestion(noteId: note.id, reason: reason, score: score),
+      );
+    }
+    suggestions.sort((a, b) {
+      final scoreOrder = b.score.compareTo(a.score);
+      return scoreOrder != 0 ? scoreOrder : a.noteId.compareTo(b.noteId);
+    });
+    return List.unmodifiable(suggestions.take(limit));
   }
 
   bool _containsMeaningful(String source, String value) {

@@ -299,6 +299,57 @@ void main() {
     expect(editor.controller.markdown, contains('#开发/Flutter'));
   });
 
+  testWidgets('Finds and opens explainable local related notes', (
+    WidgetTester tester,
+  ) async {
+    final now = DateTime.now();
+    await testRepository.upsertNote(
+      Note(
+        id: 'related-source',
+        title: 'Flutter 发布复盘',
+        content: 'Flutter 编辑器发布检查与状态管理 #开发',
+        createdAt: now,
+        updatedAt: now,
+      ),
+    );
+    await testRepository.upsertNote(
+      Note(
+        id: 'unrelated-source',
+        title: '采购清单',
+        content: '牛奶和水果 #生活',
+        createdAt: now,
+        updatedAt: now,
+      ),
+    );
+    await tester.pumpWidget(testApp);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('新建笔记'));
+    await tester.pumpAndSettle();
+    await enterNoteBody(tester, '继续完善 Flutter 编辑器发布流程 #开发');
+
+    await tester.tap(find.byTooltip('更多操作'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('relatedNotesMenuItem')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('relatedNote-related-source')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('relatedNote-unrelated-source')),
+      findsNothing,
+    );
+    expect(find.textContaining('共同标签'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('relatedNote-related-source')));
+    await tester.pumpAndSettle();
+
+    final titleField = tester.widget<TextField>(
+      find.byKey(const ValueKey('noteTitleField')),
+    );
+    expect(titleField.controller!.text, 'Flutter 发布复盘');
+  });
+
   testWidgets('Displays and removes an existing image attachment', (
     WidgetTester tester,
   ) async {
