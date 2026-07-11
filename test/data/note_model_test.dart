@@ -41,6 +41,18 @@ void main() {
     expect(Note.matchesTag(['#生活'], '#工作'), isFalse);
   });
 
+  test('builds a clean body preview without duplicating inline tags', () {
+    final note = Note(
+      id: 'preview-note',
+      title: '',
+      content: '一段想法 #工作/项目\n- 后续行动 #待办',
+      createdAt: DateTime.utc(2026, 7, 11),
+      updatedAt: DateTime.utc(2026, 7, 11),
+    );
+
+    expect(note.bodyPreview, '一段想法 后续行动');
+  });
+
   test('round-trips ordered text and image blocks', () {
     final note = Note(
       id: 'block-note',

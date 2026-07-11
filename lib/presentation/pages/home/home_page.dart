@@ -17,11 +17,47 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   DateTime _selectedDate = _dateOnly(DateTime.now());
+  String? _selectedTag;
+
+  static const _untagged = '__untagged__';
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      drawer: Consumer<NoteProvider>(
+        builder: (context, notes, child) {
+          final activeNotes = notes.activeNotes;
+          final counts = <String, int>{};
+          for (final note in activeNotes) {
+            for (final tag in Note.expandTagHierarchy(note.tags)) {
+              counts.update(tag, (value) => value + 1, ifAbsent: () => 1);
+            }
+          }
+          final tags = counts.keys.toList()..sort();
+          return _HomeTagDrawer(
+            tags: tags,
+            counts: counts,
+            totalCount: activeNotes.length,
+            untaggedCount: activeNotes
+                .where((note) => note.tags.isEmpty)
+                .length,
+            selectedTag: _selectedTag,
+            onSelected: (tag) {
+              setState(() => _selectedTag = tag);
+              Navigator.of(context).pop();
+            },
+          );
+        },
+      ),
       appBar: AppBar(
+        leading: Builder(
+          builder: (context) => IconButton(
+            key: const ValueKey('homeSidebarButton'),
+            onPressed: () => Scaffold.of(context).openDrawer(),
+            icon: const Icon(Icons.menu),
+            tooltip: '打开标签侧边栏',
+          ),
+        ),
         title: const Row(
           children: [
             Icon(Icons.auto_stories_outlined, size: 22),
@@ -31,9 +67,9 @@ class _HomePageState extends State<HomePage> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.history),
+            icon: const Icon(Icons.view_stream_outlined),
             onPressed: () => context.push(AppRouter.history),
-            tooltip: '历史记录',
+            tooltip: '全部笔记',
           ),
           IconButton(
             icon: const Icon(Icons.settings),
@@ -56,8 +92,20 @@ class _HomePageState extends State<HomePage> {
           }
 
           final todayNotes = noteProvider.todayNotes;
-          final recentNotes = noteProvider.activeNotes.take(5).toList();
-          final selectedNotes = noteProvider.notesForDay(_selectedDate);
+          bool matchesSelection(Note note) {
+            return _selectedTag == null ||
+                (_selectedTag == _untagged
+                    ? note.tags.isEmpty
+                    : Note.matchesTag(note.tags, _selectedTag!));
+          }
+
+          final visibleNotes = noteProvider.activeNotes
+              .where(matchesSelection)
+              .toList();
+          final selectedNotes = noteProvider
+              .notesForDay(_selectedDate)
+              .where((note) => !note.isArchived && matchesSelection(note))
+              .toList();
 
           return Align(
             alignment: Alignment.topCenter,
@@ -95,19 +143,34 @@ class _HomePageState extends State<HomePage> {
                       ...selectedNotes.map(
                         (note) => Padding(
                           padding: const EdgeInsets.only(bottom: 8),
-                          child: _NoteCard(note: note),
+                          child: _NoteCard(
+                            note: note,
+                            onTagSelected: (tag) {
+                              setState(() => _selectedTag = tag);
+                            },
+                          ),
                         ),
                       ),
                     const SizedBox(height: 16),
-                    _SectionHeader(title: '最近更新', count: recentNotes.length),
+                    _SectionHeader(
+                      title: _selectedTag == _untagged
+                          ? '无标签笔记'
+                          : _selectedTag ?? '全部笔记',
+                      count: visibleNotes.length,
+                    ),
                     const SizedBox(height: 10),
-                    if (recentNotes.isEmpty)
+                    if (visibleNotes.isEmpty)
                       const _InlineEmptyState()
                     else
-                      ...recentNotes.map(
+                      ...visibleNotes.map(
                         (note) => Padding(
                           padding: const EdgeInsets.only(bottom: 8),
-                          child: _NoteCard(note: note),
+                          child: _NoteCard(
+                            note: note,
+                            onTagSelected: (tag) {
+                              setState(() => _selectedTag = tag);
+                            },
+                          ),
                         ),
                       ),
                   ],
@@ -294,52 +357,242 @@ class _SectionHeader extends StatelessWidget {
 }
 
 class _NoteCard extends StatelessWidget {
-  const _NoteCard({required this.note});
+  const _NoteCard({required this.note, required this.onTagSelected});
 
   final Note note;
+  final ValueChanged<String> onTagSelected;
 
   @override
   Widget build(BuildContext context) {
     return Card(
-      child: ListTile(
-        leading: note.images.isNotEmpty
-            ? NoteThumbnail(image: note.images.first)
-            : Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                alignment: Alignment.center,
-                child: Icon(
-                  note.isArchived
-                      ? Icons.archive_outlined
-                      : Icons.description_outlined,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-              ),
-        title: Text(
-          note.displayTitle,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        subtitle: Text(
-          note.preview.isEmpty
-              ? DateUtil.formatDateTime(note.updatedAt)
-              : '${note.preview}\n${DateUtil.formatDateTime(note.updatedAt)}',
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-        trailing: const Icon(Icons.chevron_right),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
         onTap: () {
           context.push(
             '${AppRouter.editor}?noteId=${Uri.encodeComponent(note.id)}',
           );
         },
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (note.title.trim().isNotEmpty) ...[
+                      Text(
+                        note.title.trim(),
+                        style: Theme.of(context).textTheme.titleMedium,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 6),
+                    ],
+                    if (note.bodyPreview.isNotEmpty)
+                      Text(
+                        note.bodyPreview,
+                        maxLines: 4,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    if (note.tags.isNotEmpty) ...[
+                      const SizedBox(height: 9),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 6,
+                        children: note.tags
+                            .map(
+                              (tag) => _InlineTag(
+                                tag: tag,
+                                onTap: () => onTagSelected(tag),
+                              ),
+                            )
+                            .toList(),
+                      ),
+                    ],
+                    const SizedBox(height: 9),
+                    Text(
+                      DateUtil.formatDateTime(note.updatedAt),
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
+                  ],
+                ),
+              ),
+              if (note.images.isNotEmpty) ...[
+                const SizedBox(width: 12),
+                NoteThumbnail(image: note.images.first, size: 72),
+              ],
+            ],
+          ),
+        ),
       ),
+    );
+  }
+}
+
+class _InlineTag extends StatelessWidget {
+  const _InlineTag({required this.tag, required this.onTap});
+
+  final String tag;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Text(
+        tag,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+          color: Theme.of(context).colorScheme.primary,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeTagDrawer extends StatelessWidget {
+  const _HomeTagDrawer({
+    required this.tags,
+    required this.counts,
+    required this.totalCount,
+    required this.untaggedCount,
+    required this.selectedTag,
+    required this.onSelected,
+  });
+
+  final List<String> tags;
+  final Map<String, int> counts;
+  final int totalCount;
+  final int untaggedCount;
+  final String? selectedTag;
+  final ValueChanged<String?> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Drawer(
+      width: 300,
+      shape: const RoundedRectangleBorder(),
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 18, 12, 12),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.auto_stories_outlined,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      '我的笔记',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close),
+                    tooltip: '关闭侧边栏',
+                  ),
+                ],
+              ),
+            ),
+            const Divider(),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(8, 8, 8, 24),
+                children: [
+                  _DrawerTagTile(
+                    key: const ValueKey('homeTag-all'),
+                    label: '全部笔记',
+                    count: totalCount,
+                    selected: selectedTag == null,
+                    icon: Icons.view_stream_outlined,
+                    onTap: () => onSelected(null),
+                  ),
+                  if (untaggedCount > 0)
+                    _DrawerTagTile(
+                      key: const ValueKey('homeTag-untagged'),
+                      label: '无标签',
+                      count: untaggedCount,
+                      selected: selectedTag == _HomePageState._untagged,
+                      icon: Icons.label_off_outlined,
+                      onTap: () => onSelected(_HomePageState._untagged),
+                    ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 18, 12, 6),
+                    child: Text(
+                      '标签',
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                  for (final tag in tags)
+                    _DrawerTagTile(
+                      key: ValueKey('homeTag-$tag'),
+                      label: tag.substring(1).split('/').last,
+                      count: counts[tag] ?? 0,
+                      selected: selectedTag == tag,
+                      depth: tag.substring(1).split('/').length - 1,
+                      icon: Icons.tag,
+                      onTap: () => onSelected(tag),
+                    ),
+                  if (tags.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Text(
+                        '正文中的 #标签 会显示在这里',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DrawerTagTile extends StatelessWidget {
+  const _DrawerTagTile({
+    super.key,
+    required this.label,
+    required this.count,
+    required this.selected,
+    required this.icon,
+    required this.onTap,
+    this.depth = 0,
+  });
+
+  final String label;
+  final int count;
+  final bool selected;
+  final IconData icon;
+  final VoidCallback onTap;
+  final int depth;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return ListTile(
+      dense: true,
+      minTileHeight: 40,
+      contentPadding: EdgeInsets.only(left: 12 + depth * 18, right: 12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+      selected: selected,
+      selectedTileColor: colors.primaryContainer,
+      leading: Icon(icon, size: 18),
+      title: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+      trailing: Text(count.toString()),
+      onTap: onTap,
     );
   }
 }

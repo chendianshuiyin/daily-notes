@@ -636,3 +636,18 @@
 - Added configuration validation and provider lifecycle tests plus settings-dialog validation coverage.
 - `flutter test`: 53 tests passed; `flutter analyze`: passed with no issues.
 - Android release APK built successfully at 61.1 MB and the Web JavaScript release completed.
+
+## 2026-07-11 Main note stream and tag drawer
+
+### Completed
+
+- Replaced the home `History` action and page title with `All notes` terminology.
+- Added a left-edge home drawer with all-note, untagged, parent-tag, and nested-tag filters that update the main note stream directly.
+- Removed the five-note home limit so the primary screen behaves as the complete active-note stream.
+- Removed raw inline tags from card body previews and rendered tags separately as lightweight clickable text instead of heavy chips.
+- Applied the same clean body preview and lighter tag treatment to the all-notes screen.
+
+### Verification
+
+- Added model coverage for tag-free body previews and a widget test for filtering the home stream from the drawer.
+- Android 36 emulator confirmed the drawer width, hierarchy indentation, counts, selected state, card density, and narrow-screen layout without overflow.

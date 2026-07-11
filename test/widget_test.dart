@@ -89,6 +89,45 @@ void main() {
     expect(find.text('热力图记录'), findsWidgets);
   });
 
+  testWidgets('Filters the main note stream from the left tag drawer', (
+    WidgetTester tester,
+  ) async {
+    final now = DateTime.now();
+    await testRepository.upsertNote(
+      Note(
+        id: 'drawer-tagged',
+        title: '项目记录',
+        content: '正在推进 #工作/项目',
+        createdAt: now,
+        updatedAt: now,
+      ),
+    );
+    await testRepository.upsertNote(
+      Note(
+        id: 'drawer-untagged',
+        title: '随手记录',
+        content: '没有标签',
+        createdAt: now,
+        updatedAt: now,
+      ),
+    );
+
+    await tester.pumpWidget(testApp);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('homeSidebarButton')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('homeTag-all')), findsOneWidget);
+    expect(find.byKey(const ValueKey('homeTag-untagged')), findsOneWidget);
+    expect(find.byKey(const ValueKey('homeTag-#工作')), findsOneWidget);
+    expect(find.byKey(const ValueKey('homeTag-#工作/项目')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('homeTag-#工作')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('项目记录'), findsWidgets);
+    expect(find.text('随手记录'), findsNothing);
+  });
+
   testWidgets('Creates and lists a note', (WidgetTester tester) async {
     await tester.pumpWidget(testApp);
     await tester.pumpAndSettle();
@@ -366,7 +405,7 @@ void main() {
 
     await tester.pumpWidget(testApp);
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('历史记录'));
+    await tester.tap(find.byTooltip('全部笔记'));
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('historySearchField')), findsOneWidget);
@@ -425,7 +464,7 @@ void main() {
 
     await tester.pumpWidget(testApp);
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('历史记录'));
+    await tester.tap(find.byTooltip('全部笔记'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('旧标签笔记'));
     await tester.pumpAndSettle();
@@ -472,7 +511,7 @@ void main() {
 
     await tester.pumpWidget(testApp);
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('历史记录'));
+    await tester.tap(find.byTooltip('全部笔记'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const ValueKey('historyTag-untagged')));

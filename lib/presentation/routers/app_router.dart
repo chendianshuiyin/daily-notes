@@ -39,7 +39,7 @@ class AppRouter {
             return MaterialPage(child: EditorPage(noteId: noteId));
           },
         ),
-        // 历史页面
+        // 全部笔记页面
         GoRoute(
           path: history,
           name: 'history',

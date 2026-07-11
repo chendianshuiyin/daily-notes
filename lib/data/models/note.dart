@@ -45,6 +45,14 @@ class Note {
     return images.isEmpty ? '' : '${images.length} 张图片';
   }
 
+  String get bodyPreview {
+    return content
+        .replaceAll(RegExp(r'#[^\s#，。,.!?！？；;：:]+'), '')
+        .replaceAll(RegExp(r'(^|\s)(#{1,3}|[-*>]|\d+\.)\s+'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+  }
+
   bool get hasBody =>
       title.trim().isNotEmpty || content.trim().isNotEmpty || images.isNotEmpty;
 
