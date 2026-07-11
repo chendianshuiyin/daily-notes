@@ -40,6 +40,7 @@ class _DailyNotesAppState extends State<DailyNotesApp> {
         ChangeNotifierProvider(
           create: (_) => AppSettingsProvider()..loadSettings(),
         ),
+        ChangeNotifierProvider(create: (_) => AppUpdateProvider()..load()),
         ChangeNotifierProvider(create: (_) => WebDavProvider()..load()),
         ChangeNotifierProvider(
           create: (_) {
@@ -58,8 +59,8 @@ class _DailyNotesAppState extends State<DailyNotesApp> {
             debugShowCheckedModeBanner: false,
 
             // 主题配置
-            theme: AppTheme.lightTheme,
-            darkTheme: AppTheme.darkTheme,
+            theme: AppTheme.lightTheme(settings.colorPalette),
+            darkTheme: AppTheme.darkTheme(settings.colorPalette),
             themeMode: settings.themeMode,
 
             // 路由配置

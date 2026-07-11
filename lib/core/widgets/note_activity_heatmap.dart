@@ -1,110 +1,181 @@
 import 'package:flutter/material.dart';
 
-class NoteActivityHeatmap extends StatelessWidget {
+class NoteActivityHeatmap extends StatefulWidget {
   const NoteActivityHeatmap({
     super.key,
     required this.activityByDay,
     required this.selectedDate,
     required this.onDateSelected,
+    this.weeks = 12,
     this.today,
   });
 
   final Map<DateTime, int> activityByDay;
   final DateTime selectedDate;
   final ValueChanged<DateTime> onDateSelected;
+  final int weeks;
   final DateTime? today;
 
   @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final weeks = constraints.maxWidth >= 900
-            ? 52
-            : constraints.maxWidth >= 620
-            ? 28
-            : 16;
-        final normalizedToday = _dateOnly(today ?? DateTime.now());
-        final currentMonday = normalizedToday.subtract(
-          Duration(days: normalizedToday.weekday - DateTime.monday),
-        );
-        final firstDay = currentMonday.subtract(
-          Duration(days: (weeks - 1) * 7),
-        );
-        final lastDay = firstDay.add(Duration(days: weeks * 7 - 1));
+  State<NoteActivityHeatmap> createState() => _NoteActivityHeatmapState();
 
-        return Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: Theme.of(context).colorScheme.outlineVariant,
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      '${_shortDate(firstDay)} - ${_shortDate(lastDay)}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '最近 $weeks 周',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const _WeekdayLabels(),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: FittedBox(
-                      alignment: Alignment.centerLeft,
-                      fit: BoxFit.scaleDown,
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          for (var week = 0; week < weeks; week++) ...[
-                            _HeatmapWeek(
-                              firstDay: firstDay.add(Duration(days: week * 7)),
-                              today: normalizedToday,
-                              selectedDate: _dateOnly(selectedDate),
-                              activityByDay: activityByDay,
-                              onDateSelected: onDateSelected,
-                            ),
-                            if (week != weeks - 1) const SizedBox(width: 4),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              const _IntensityLegend(),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  static DateTime _dateOnly(DateTime value) {
+  static DateTime dateOnly(DateTime value) {
     return DateTime(value.year, value.month, value.day);
   }
 
-  static String _shortDate(DateTime value) {
+  static String shortDate(DateTime value) {
     return '${value.year}.${value.month.toString().padLeft(2, '0')}.${value.day.toString().padLeft(2, '0')}';
+  }
+}
+
+class _NoteActivityHeatmapState extends State<NoteActivityHeatmap> {
+  static const double _cellSize = 14;
+  static const double _cellGap = 4;
+  static const double _weekWidth = _cellSize + _cellGap;
+
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollToLatest();
+  }
+
+  @override
+  void didUpdateWidget(covariant NoteActivityHeatmap oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.weeks != widget.weeks) {
+      _scrollToLatest();
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToLatest() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _scrollController.hasClients) {
+        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final weeks = widget.weeks.clamp(4, 52);
+    final normalizedToday = NoteActivityHeatmap.dateOnly(
+      widget.today ?? DateTime.now(),
+    );
+    final currentMonday = normalizedToday.subtract(
+      Duration(days: normalizedToday.weekday - DateTime.monday),
+    );
+    final firstDay = currentMonday.subtract(Duration(days: (weeks - 1) * 7));
+    final gridWidth = weeks * _weekWidth - _cellGap;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(top: 22),
+          child: _WeekdayLabels(),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Scrollbar(
+            controller: _scrollController,
+            thumbVisibility: weeks > 12,
+            child: SingleChildScrollView(
+              controller: _scrollController,
+              scrollDirection: Axis.horizontal,
+              child: SizedBox(
+                width: gridWidth,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _MonthLabels(
+                      firstDay: firstDay,
+                      weeks: weeks,
+                      weekWidth: _weekWidth,
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        for (var week = 0; week < weeks; week++) ...[
+                          _HeatmapWeek(
+                            firstDay: firstDay.add(Duration(days: week * 7)),
+                            today: normalizedToday,
+                            selectedDate: NoteActivityHeatmap.dateOnly(
+                              widget.selectedDate,
+                            ),
+                            activityByDay: widget.activityByDay,
+                            onDateSelected: widget.onDateSelected,
+                          ),
+                          if (week != weeks - 1)
+                            const SizedBox(width: _cellGap),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MonthLabels extends StatelessWidget {
+  const _MonthLabels({
+    required this.firstDay,
+    required this.weeks,
+    required this.weekWidth,
+  });
+
+  final DateTime firstDay;
+  final int weeks;
+  final double weekWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    final labels = <({int week, int month})>[];
+    for (var week = 0; week < weeks; week++) {
+      final weekStart = firstDay.add(Duration(days: week * 7));
+      for (var day = 0; day < 7; day++) {
+        final date = weekStart.add(Duration(days: day));
+        if (date.day == 1 &&
+            (labels.isEmpty || labels.last.month != date.month)) {
+          labels.add((week: week, month: date.month));
+          break;
+        }
+      }
+    }
+    if (labels.isEmpty || labels.first.week >= 3) {
+      labels.insert(0, (week: 0, month: firstDay.month));
+    }
+
+    return SizedBox(
+      key: const ValueKey('heatmapMonthLabels'),
+      height: 18,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          for (final label in labels)
+            Positioned(
+              left: label.week * weekWidth,
+              child: Text(
+                '${label.month}月',
+                style: Theme.of(context).textTheme.labelSmall,
+              ),
+            ),
+        ],
+      ),
+    );
   }
 }
 
@@ -190,12 +261,12 @@ class _HeatmapCell extends StatelessWidget {
         ? Colors.transparent
         : switch (count) {
             0 => colorScheme.surfaceContainerHighest,
-            1 => colorScheme.primary.withValues(alpha: 0.35),
-            2 => colorScheme.primary.withValues(alpha: 0.55),
-            3 => colorScheme.primary.withValues(alpha: 0.75),
+            1 => colorScheme.primary.withValues(alpha: 0.3),
+            2 => colorScheme.primary.withValues(alpha: 0.5),
+            3 => colorScheme.primary.withValues(alpha: 0.72),
             _ => colorScheme.primary,
           };
-    final label = '${NoteActivityHeatmap._shortDate(date)}，$count 条笔记';
+    final label = '${NoteActivityHeatmap.shortDate(date)}，$count 条笔记';
 
     return Tooltip(
       message: label,
@@ -226,41 +297,5 @@ class _HeatmapCell extends StatelessWidget {
 
   static String _keyDate(DateTime value) {
     return '${value.year}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
-  }
-}
-
-class _IntensityLegend extends StatelessWidget {
-  const _IntensityLegend();
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final colors = [
-      colorScheme.surfaceContainerHighest,
-      colorScheme.primary.withValues(alpha: 0.35),
-      colorScheme.primary.withValues(alpha: 0.55),
-      colorScheme.primary.withValues(alpha: 0.75),
-      colorScheme.primary,
-    ];
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        Text('少', style: Theme.of(context).textTheme.labelSmall),
-        const SizedBox(width: 6),
-        for (final color in colors) ...[
-          Container(
-            width: 12,
-            height: 12,
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(3),
-            ),
-          ),
-          const SizedBox(width: 4),
-        ],
-        Text('多', style: Theme.of(context).textTheme.labelSmall),
-      ],
-    );
   }
 }

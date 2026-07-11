@@ -1,34 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
   <title id="title">Daily Notes app icon</title>
-  <desc id="desc">A gradient app icon with a note sheet, writing lines, and an accent check mark.</desc>
-  <defs>
-    <linearGradient id="bg" x1="120" y1="60" x2="900" y2="960" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#0f766e"/>
-      <stop offset="0.52" stop-color="#0891b2"/>
-      <stop offset="1" stop-color="#2563eb"/>
-    </linearGradient>
-    <linearGradient id="paper" x1="300" y1="180" x2="720" y2="850" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#fffdf4"/>
-      <stop offset="1" stop-color="#fff7df"/>
-    </linearGradient>
-    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="22" stdDeviation="24" flood-color="#083344" flood-opacity="0.28"/>
-    </filter>
-  </defs>
-  <rect width="1024" height="1024" fill="url(#bg)"/>
-  <circle cx="150" cy="116" r="290" fill="#ffffff" opacity="0.14"/>
-  <circle cx="900" cy="860" r="270" fill="#fb923c" opacity="0.18"/>
-  <g filter="url(#shadow)">
-    <rect x="236" y="182" width="552" height="666" rx="56" fill="url(#paper)"/>
-    <path d="M236 238c0-31 25-56 56-56h440c31 0 56 25 56 56v74H236v-74z" fill="#dff7f1"/>
-    <path d="M675 182h57c31 0 56 25 56 56v57L675 182z" fill="#ffe3b2"/>
-    <path d="M675 182v84c0 16 13 29 29 29h84" fill="none" stroke="#f59e0b" stroke-width="12" stroke-linecap="round"/>
-    <circle cx="336" cy="249" r="18" fill="#0f766e"/>
-    <circle cx="424" cy="249" r="18" fill="#0f766e"/>
-    <circle cx="512" cy="249" r="18" fill="#0f766e"/>
-    <path d="M320 444h384" stroke="#0f766e" stroke-width="20" stroke-linecap="round" opacity="0.86"/>
-    <path d="M320 537h328" stroke="#0f766e" stroke-width="20" stroke-linecap="round" opacity="0.7"/>
-    <path d="M320 630h250" stroke="#0f766e" stroke-width="20" stroke-linecap="round" opacity="0.54"/>
-    <path d="M584 688l58 58 92-120" fill="none" stroke="#f97316" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
-  </g>
+  <desc id="desc">A clear blue memo bubble with a sunny folded corner and three writing lines.</desc>
+  <rect width="1024" height="1024" fill="#f7f8fc"/>
+  <path d="M302 180h420c70 0 126 56 126 126v388c0 70-56 126-126 126H410L238 878l36-109c-60-16-104-70-104-135V312c0-73 59-132 132-132z" fill="#356ae6"/>
+  <path d="M688 180h34c70 0 126 56 126 126v42H688V180z" fill="#f7f8fc"/>
+  <path d="M688 180v112c0 31 25 56 56 56h104L688 180z" fill="#f0b429"/>
+  <circle cx="306" cy="340" r="26" fill="#ffffff"/>
+  <path d="M374 340h238M282 470h456M282 590h348" fill="none" stroke="#ffffff" stroke-width="42" stroke-linecap="round"/>
 </svg>

@@ -762,3 +762,29 @@
 - Added a 360x800 end-to-end widget flow proving there is no request before source confirmation and no persistence before save confirmation.
 - `flutter test`: 70 tests passed; `flutter analyze`: passed with no issues.
 - Android release APK built successfully at 61.7 MB and the Web JavaScript release completed.
+
+## 2026-07-11 Visual polish and file portability
+
+### Completed
+
+- Replaced the dark teal/coral experiments with a clear sky-blue and sunny-yellow default, added persisted Tokyo Night and Everforest palettes, and kept brightness as an independent setting.
+- Rebuilt the drawer heatmap around aligned month labels and Monday-to-Sunday rows, defaulted it to 12 weeks, and added persisted 3-month, 6-month, and 1-year ranges.
+- Removed hash icons from the sidebar tag tree, added independent branch expansion, and rendered tags at their original positions inside memo body previews instead of duplicating them in a detached row.
+- Replaced the redundant top-right all-notes shortcut with inline home search, reduced archive/management to a recycle bin with restore/permanent-delete actions, and brought the clearer date badge into the primary stream.
+- Added optional image covers with first-image fallback and lossless JSON/WebDAV persistence.
+- Rebuilt the app icon as a flat blue memo bubble with a sunny fold and regenerated Android, Web, Windows, and Linux assets; iOS/macOS assets remain outside scope.
+- Flattened Settings into whitespace-separated sections with indented dividers instead of repeated cards.
+- Added GitHub Release update checks with 24-hour throttling, a persisted automatic-check switch, manual checks, trusted URL validation, semantic version comparison, release notes, and platform-specific package selection.
+- Fixed Android system back handling so an open home drawer closes before the app leaves the foreground.
+- Replaced clipboard-first backup actions with real file export/import. Added lossless Daily Notes JSON and interoperable Markdown ZIP with relative image assets and metadata front matter.
+- Added `.json`, standalone `.md`, and multi-note Markdown ZIP import with relative image resolution, merge confirmation, background processing, size limits, and ZIP path-traversal protection.
+- Added visual and portability contracts under `docs/design/` and installed Flutter responsive-layout, layout-diagnostics, and design-polish skills for future review passes.
+
+### Verification
+
+- Added unit coverage for JSON round-trip, Markdown ZIP structure/image recovery, generic Markdown import, cover persistence, palette persistence, collapsible tags, home search, heatmap range persistence, month-label spacing, inline tags, and export choices.
+- `flutter test`: 80 tests passed; `flutter analyze`: passed with no issues.
+- Android 16 emulator imported a JSON file through the system picker and exported a verified UTF-8 Markdown ZIP through the system save dialog.
+- Android 16 emulator verified Light, Tokyo Night, and Everforest switching; real drawer expansion/collapse; the search-only result stream; and the new launcher icon.
+- Android 16 release APK verified that `KEYCODE_BACK` closes the open drawer while keeping Daily Notes in the foreground.
+- Android release APK completed at 62.3 MiB, and the Web JavaScript release build completed successfully.

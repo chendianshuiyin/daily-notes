@@ -10,6 +10,7 @@ class Note {
     required this.updatedAt,
     this.isArchived = false,
     this.images = const [],
+    this.coverImageId,
     List<NoteBlock> blocks = const [],
     List<String> tags = const [],
   }) : _blocks = blocks,
@@ -22,6 +23,7 @@ class Note {
   final DateTime updatedAt;
   final bool isArchived;
   final List<NoteImage> images;
+  final String? coverImageId;
   final List<NoteBlock> _blocks;
   final List<String> _tags;
 
@@ -51,6 +53,21 @@ class Note {
         .replaceAll(RegExp(r'(^|\s)(#{1,3}|[-*>]|\d+\.)\s+'), ' ')
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
+  }
+
+  NoteImage? get coverImage {
+    if (images.isEmpty) {
+      return null;
+    }
+    final selectedId = coverImageId;
+    if (selectedId != null) {
+      for (final image in images) {
+        if (image.id == selectedId) {
+          return image;
+        }
+      }
+    }
+    return images.first;
   }
 
   bool get hasBody =>
@@ -117,6 +134,7 @@ class Note {
     DateTime? updatedAt,
     bool? isArchived,
     List<NoteImage>? images,
+    Object? coverImageId = _unset,
     List<NoteBlock>? blocks,
     List<String>? tags,
   }) {
@@ -128,6 +146,9 @@ class Note {
       updatedAt: updatedAt ?? this.updatedAt,
       isArchived: isArchived ?? this.isArchived,
       images: images ?? this.images,
+      coverImageId: identical(coverImageId, _unset)
+          ? this.coverImageId
+          : coverImageId as String?,
       blocks: blocks ?? _blocks,
       tags: tags ?? _tags,
     );
@@ -142,6 +163,7 @@ class Note {
       'updatedAt': updatedAt.toIso8601String(),
       'isArchived': isArchived,
       'images': images.map((image) => image.toJson()).toList(),
+      'coverImageId': coverImageId,
       'contentVersion': NoteDocument.contentVersion,
       'blocks': blocks.map((block) => block.toJson()).toList(),
       'tags': tags,
@@ -157,6 +179,7 @@ class Note {
       updatedAt: _readDate(json['updatedAt']),
       isArchived: json['isArchived'] as bool? ?? false,
       images: _readImages(json['images']),
+      coverImageId: json['coverImageId'] as String?,
       blocks: _readBlocks(json['blocks']),
       tags: _readTags(json['tags']),
     );
@@ -212,4 +235,6 @@ class Note {
     }
     return List.unmodifiable(blocks);
   }
+
+  static const Object _unset = Object();
 }

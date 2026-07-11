@@ -12,6 +12,7 @@ class NoteProvider extends ChangeNotifier {
 
   final NoteRepository _repository;
   final NoteBackupService _backupService = const NoteBackupService();
+  static const Object _unset = Object();
 
   List<Note> _notes = [];
   bool _isLoading = false;
@@ -123,6 +124,7 @@ class NoteProvider extends ChangeNotifier {
     required String title,
     required String content,
     List<NoteImage>? images,
+    Object? coverImageId = _unset,
     List<NoteBlock>? blocks,
     List<String>? tags,
   }) async {
@@ -143,6 +145,9 @@ class NoteProvider extends ChangeNotifier {
       updatedAt: now,
       isArchived: existing?.isArchived ?? false,
       images: noteImages,
+      coverImageId: identical(coverImageId, _unset)
+          ? existing?.coverImageId
+          : coverImageId as String?,
       blocks: noteBlocks,
       tags: tags ?? existing?.tags ?? const [],
     );

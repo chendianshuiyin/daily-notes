@@ -1,52 +1,52 @@
 import 'package:flutter/material.dart';
 
-import '../constants/app_colors.dart';
+import 'app_color_palette.dart';
 
 class AppTheme {
   AppTheme._();
 
-  static ThemeData get lightTheme => _buildTheme(Brightness.light);
+  static ThemeData lightTheme([
+    AppColorPalette palette = AppColorPalette.daybreak,
+  ]) => _buildTheme(Brightness.light, palette);
 
-  static ThemeData get darkTheme => _buildTheme(Brightness.dark);
+  static ThemeData darkTheme([
+    AppColorPalette palette = AppColorPalette.daybreak,
+  ]) => _buildTheme(Brightness.dark, palette);
 
-  static ThemeData _buildTheme(Brightness brightness) {
+  static ThemeData _buildTheme(Brightness brightness, AppColorPalette palette) {
     final isDark = brightness == Brightness.dark;
-    final surface = isDark ? AppColors.darkSurface : AppColors.lightSurface;
-    final card = isDark ? AppColors.darkCard : AppColors.lightCard;
-    final border = isDark ? AppColors.darkBorder : AppColors.lightBorder;
-    final text = isDark
-        ? AppColors.darkTextPrimary
-        : AppColors.lightTextPrimary;
-    final muted = isDark
-        ? AppColors.darkTextSecondary
-        : AppColors.lightTextSecondary;
+    final colors = palette.colors(brightness);
+    final surface = colors.surface;
+    final card = colors.card;
+    final border = colors.border;
+    final text = colors.text;
+    final muted = colors.muted;
     final scheme =
         ColorScheme.fromSeed(
-          seedColor: AppColors.primary,
+          seedColor: colors.primary,
           brightness: brightness,
         ).copyWith(
-          primary: AppColors.primary,
-          onPrimary: Colors.white,
-          secondary: AppColors.success,
-          tertiary: AppColors.warning,
+          primary: colors.primary,
+          onPrimary: colors.onPrimary,
+          primaryContainer: colors.primaryContainer,
+          onPrimaryContainer: colors.onPrimaryContainer,
+          secondary: colors.secondary,
+          tertiary: colors.tertiary,
           surface: surface,
           onSurface: text,
+          onSurfaceVariant: muted,
           outline: border,
           outlineVariant: border.withValues(alpha: isDark ? 0.8 : 0.75),
-          surfaceContainerLowest: isDark
-              ? const Color(0xFF0B0F14)
-              : Colors.white,
+          surfaceContainerLowest: colors.background,
           surfaceContainerLow: card,
-          surfaceContainer: isDark
-              ? const Color(0xFF21262D)
-              : const Color(0xFFF7F9FC),
-          surfaceContainerHigh: isDark
-              ? const Color(0xFF272C33)
-              : const Color(0xFFEEF1F5),
-          surfaceContainerHighest: isDark
-              ? const Color(0xFF30363D)
-              : const Color(0xFFE4E9F0),
-          error: AppColors.error,
+          surfaceContainer: colors.container,
+          surfaceContainerHigh: colors.containerHigh,
+          surfaceContainerHighest: Color.lerp(
+            colors.containerHigh,
+            text,
+            isDark ? 0.08 : 0.05,
+          ),
+          error: colors.error,
           onError: Colors.white,
         );
 
@@ -54,10 +54,8 @@ class AppTheme {
       useMaterial3: true,
       brightness: brightness,
       colorScheme: scheme,
-      scaffoldBackgroundColor: isDark
-          ? AppColors.darkBackground
-          : AppColors.lightBackground,
-      textTheme: _buildTextTheme(brightness),
+      scaffoldBackgroundColor: colors.background,
+      textTheme: _buildTextTheme(colors),
       appBarTheme: AppBarTheme(
         elevation: 0,
         scrolledUnderElevation: 0,
@@ -99,11 +97,11 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: AppColors.primary, width: 2),
+          borderSide: BorderSide(color: colors.primary, width: 2),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: AppColors.error),
+          borderSide: BorderSide(color: colors.error),
         ),
         hintStyle: TextStyle(color: muted),
       ),
@@ -117,8 +115,8 @@ class AppTheme {
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           elevation: 0,
-          backgroundColor: AppColors.primary,
-          foregroundColor: Colors.white,
+          backgroundColor: colors.primary,
+          foregroundColor: colors.onPrimary,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       ),
@@ -143,9 +141,9 @@ class AppTheme {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
       snackBarTheme: SnackBarThemeData(behavior: SnackBarBehavior.fixed),
-      floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: colors.primary,
+        foregroundColor: colors.onPrimary,
         elevation: 2,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.all(Radius.circular(8)),
@@ -158,13 +156,9 @@ class AppTheme {
     );
   }
 
-  static TextTheme _buildTextTheme(Brightness brightness) {
-    final text = brightness == Brightness.light
-        ? AppColors.lightTextPrimary
-        : AppColors.darkTextPrimary;
-    final muted = brightness == Brightness.light
-        ? AppColors.lightTextSecondary
-        : AppColors.darkTextSecondary;
+  static TextTheme _buildTextTheme(AppPaletteColors colors) {
+    final text = colors.text;
+    final muted = colors.muted;
 
     return TextTheme(
       headlineLarge: TextStyle(

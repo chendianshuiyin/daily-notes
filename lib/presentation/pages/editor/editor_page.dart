@@ -59,6 +59,8 @@ class _EditorPageState extends State<EditorPage> {
   String _initialTitle = '';
   String _initialContent = '';
   String _initialImageIds = '';
+  String? _coverImageId;
+  String? _initialCoverImageId;
   String _voiceTranscript = '';
   AiTranscriptSuggestion? _voiceSuggestion;
   bool _showSuggestedVoice = false;
@@ -183,6 +185,8 @@ class _EditorPageState extends State<EditorPage> {
     final editorContent = _contentWithInlineTags(note);
     _initialTitle = note.title;
     _initialImageIds = _imageIds(note.images);
+    _coverImageId = note.coverImageId;
+    _initialCoverImageId = note.coverImageId;
     _titleController.text = note.title;
     final sourceBlocks = editorContent == note.content
         ? note.blocks
@@ -224,6 +228,7 @@ class _EditorPageState extends State<EditorPage> {
         title: title,
         content: content,
         images: _images,
+        coverImageId: _coverImageId,
         blocks: _blockController.blocks,
         tags: Note.extractTags('$title $content'),
       );
@@ -234,6 +239,8 @@ class _EditorPageState extends State<EditorPage> {
 
       setState(() {
         _currentNote = note;
+        _coverImageId = note.coverImageId;
+        _initialCoverImageId = note.coverImageId;
         _initialTitle = note.title;
         _initialContent = note.content;
         _initialImageIds = _imageIds(note.images);
@@ -255,7 +262,7 @@ class _EditorPageState extends State<EditorPage> {
     }
   }
 
-  Future<void> _deleteNote() async {
+  Future<void> _moveToTrash() async {
     final noteId = _currentNote?.id ?? widget.noteId;
     if (noteId == null) {
       _popEditor();
@@ -265,16 +272,17 @@ class _EditorPageState extends State<EditorPage> {
     final shouldDelete = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('删除笔记'),
-        content: const Text('删除后无法恢复，确认继续吗？'),
+        title: const Text('移到回收站？'),
+        content: const Text('这条笔记可稍后从回收站恢复。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
             child: const Text('取消'),
           ),
           FilledButton(
+            key: const ValueKey('confirmMoveToTrashButton'),
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('删除'),
+            child: const Text('移到回收站'),
           ),
         ],
       ),
@@ -285,48 +293,19 @@ class _EditorPageState extends State<EditorPage> {
     }
 
     try {
-      await context.read<NoteProvider>().deleteNote(noteId);
+      await context.read<NoteProvider>().archiveNote(noteId, isArchived: true);
       if (!mounted) {
         return;
       }
 
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('笔记已删除')));
+      ).showSnackBar(const SnackBar(content: Text('笔记已移到回收站')));
       _popEditor();
     } catch (error, stackTrace) {
-      debugPrint('Failed to delete note: $error\n$stackTrace');
+      debugPrint('Failed to move note to trash: $error\n$stackTrace');
       if (mounted) {
-        _showError('删除失败，请重试');
-      }
-    }
-  }
-
-  Future<void> _archiveNote() async {
-    final noteId = _currentNote?.id ?? widget.noteId;
-    if (noteId == null) {
-      return;
-    }
-
-    final wasArchived = _currentNote?.isArchived ?? false;
-    try {
-      await context.read<NoteProvider>().archiveNote(
-        noteId,
-        isArchived: !wasArchived,
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(wasArchived ? '笔记已取消归档' : '笔记已归档')),
-      );
-      _popEditor();
-    } catch (error, stackTrace) {
-      debugPrint('Failed to archive note: $error\n$stackTrace');
-      if (mounted) {
-        _showError('归档操作失败，请重试');
+        _showError('无法移到回收站，请重试');
       }
     }
   }
@@ -339,7 +318,8 @@ class _EditorPageState extends State<EditorPage> {
     final isDirty =
         _titleController.text.trim() != _initialTitle ||
         _contentController.text.trim() != _initialContent ||
-        _imageIds(_images) != _initialImageIds;
+        _imageIds(_images) != _initialImageIds ||
+        _coverImageId != _initialCoverImageId;
     if (_isDirty != isDirty) {
       setState(() => _isDirty = isDirty);
     }
@@ -761,7 +741,12 @@ class _EditorPageState extends State<EditorPage> {
     try {
       final selected = await _imageService.pickImages(availableSlots: 1);
       if (selected.isNotEmpty) {
-        await _blockController.replaceImage(imageId, selected.single);
+        final replacement = selected.single;
+        await _blockController.replaceImage(imageId, replacement);
+        if (_coverImageId == imageId && mounted) {
+          setState(() => _coverImageId = replacement.id);
+          _updateDirtyState();
+        }
       }
     } on NoteImageException catch (error) {
       if (mounted) {
@@ -777,6 +762,21 @@ class _EditorPageState extends State<EditorPage> {
         setState(() => _isPickingImages = false);
       }
     }
+  }
+
+  Future<void> _removeImage(String imageId) async {
+    await _blockController.removeImage(imageId);
+    if (_coverImageId == imageId && mounted) {
+      setState(() => _coverImageId = null);
+      _updateDirtyState();
+    }
+  }
+
+  void _toggleCoverImage(String imageId) {
+    setState(() {
+      _coverImageId = _coverImageId == imageId ? null : imageId;
+    });
+    _updateDirtyState();
   }
 
   Future<void> _showImagePreview(NoteImage image) async {
@@ -1032,7 +1032,7 @@ class _EditorPageState extends State<EditorPage> {
                   ),
                 ],
                 const SizedBox(height: 8),
-                const Text('不会发送图片、WebDAV 凭据、归档笔记或隐藏元数据。'),
+                const Text('不会发送图片、WebDAV 凭据、回收站笔记或隐藏元数据。'),
                 const SizedBox(height: 8),
                 ExpansionTile(
                   key: const ValueKey('remoteAiScopeDetails'),
@@ -1434,10 +1434,8 @@ class _EditorPageState extends State<EditorPage> {
                   _showRemoteTagSuggestions();
                 } else if (value == 'related-notes') {
                   _showRelatedNotes();
-                } else if (value == 'archive') {
-                  _archiveNote();
-                } else if (value == 'delete') {
-                  _deleteNote();
+                } else if (value == 'trash') {
+                  _moveToTrash();
                 }
               },
               itemBuilder: (context) => [
@@ -1488,13 +1486,15 @@ class _EditorPageState extends State<EditorPage> {
                   ),
                 ),
                 PopupMenuItem(
+                  key: const ValueKey('moveToTrashMenuItem'),
                   enabled: !_isNewNote,
-                  value: 'archive',
-                  child: Text(
-                    (_currentNote?.isArchived ?? false) ? '取消归档' : '归档',
+                  value: 'trash',
+                  child: const ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.delete_outline),
+                    title: Text('移到回收站'),
                   ),
                 ),
-                const PopupMenuItem(value: 'delete', child: Text('删除')),
               ],
             ),
           ],
@@ -1698,25 +1698,49 @@ class _EditorPageState extends State<EditorPage> {
                                             _editImageCaption(imageId);
                                           } else if (value == 'replace') {
                                             _replaceImage(imageId);
+                                          } else if (value == 'cover') {
+                                            _toggleCoverImage(imageId);
                                           } else if (value == 'delete') {
-                                            _blockController.removeImage(
-                                              imageId,
-                                            );
+                                            _removeImage(imageId);
                                           }
                                         },
-                                        itemBuilder: (context) => const [
-                                          PopupMenuItem(
+                                        itemBuilder: (context) => [
+                                          const PopupMenuItem(
                                             key: ValueKey(
                                               'editImageCaptionMenuItem',
                                             ),
                                             value: 'caption',
                                             child: Text('编辑说明'),
                                           ),
-                                          PopupMenuItem(
+                                          const PopupMenuItem(
                                             value: 'replace',
                                             child: Text('替换图片'),
                                           ),
                                           PopupMenuItem(
+                                            key: const ValueKey(
+                                              'setCoverImageMenuItem',
+                                            ),
+                                            value: 'cover',
+                                            child: Row(
+                                              children: [
+                                                Icon(
+                                                  _coverImageId == imageId
+                                                      ? Icons
+                                                            .hide_image_outlined
+                                                      : Icons
+                                                            .photo_size_select_actual_outlined,
+                                                  size: 20,
+                                                ),
+                                                const SizedBox(width: 12),
+                                                Text(
+                                                  _coverImageId == imageId
+                                                      ? '取消封面'
+                                                      : '设为封面',
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          const PopupMenuItem(
                                             key: ValueKey(
                                               'deleteImageMenuItem',
                                             ),

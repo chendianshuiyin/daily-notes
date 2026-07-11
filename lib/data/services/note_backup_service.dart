@@ -29,7 +29,7 @@ class NoteBackupService {
     try {
       decoded = jsonDecode(source);
     } on FormatException {
-      throw const FormatException('剪贴板内容不是有效的 Daily Notes 备份。');
+      throw const FormatException('所选内容不是有效的 Daily Notes 备份。');
     }
 
     if (decoded is! Map) {
@@ -71,6 +71,7 @@ class NoteBackupService {
     final content = map['content'];
     final isArchived = map['isArchived'];
     final images = _readImages(map['images'], index);
+    final coverImageId = map['coverImageId'];
 
     if (id is! String || id.trim().isEmpty) {
       throw FormatException('第 ${index + 1} 条笔记缺少有效 ID。');
@@ -81,6 +82,9 @@ class NoteBackupService {
     if (isArchived is! bool) {
       throw FormatException('第 ${index + 1} 条笔记的归档状态无效。');
     }
+    if (coverImageId != null && coverImageId is! String) {
+      throw FormatException('第 ${index + 1} 条笔记的封面图片字段无效。');
+    }
 
     return Note(
       id: id,
@@ -90,6 +94,7 @@ class NoteBackupService {
       updatedAt: _readDate(map['updatedAt'], 'updatedAt', index: index),
       isArchived: isArchived,
       images: images,
+      coverImageId: coverImageId as String?,
       blocks: _readBlocks(map['blocks'], index),
       tags: _readTags(map['tags'], index),
     );

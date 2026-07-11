@@ -45,7 +45,7 @@ class AppRouter {
             );
           },
         ),
-        // 全部笔记页面
+        // 回收站页面
         GoRoute(
           path: history,
           name: 'history',

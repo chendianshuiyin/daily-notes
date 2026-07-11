@@ -1,7 +1,9 @@
 export 'ai_config_store.dart';
+export 'app_update_service.dart';
 export 'ai_remote_client.dart';
 export 'note_backup_service.dart';
 export 'note_image_service.dart';
+export 'note_portability_service.dart';
 export 'local_ai_organizer.dart';
 export 'webdav_config_store.dart';
 export 'webdav_sync_service.dart';

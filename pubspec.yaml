@@ -61,6 +61,10 @@ dependencies:
   file_picker: ^10.3.10
   image: ^4.8.0
 
+  # 可迁移 Markdown ZIP 导入导出
+  archive: ^4.0.9
+  path: ^1.9.1
+
   # Android、Web 与 Windows 短语音转写
   speech_to_text: ^7.4.0
 
@@ -71,6 +75,10 @@ dependencies:
   webdav_client: ^1.2.2
   dio: ^5.10.0
   flutter_secure_storage: ^10.3.1
+
+  # GitHub Release 更新检查与系统下载跳转
+  package_info_plus: ^9.0.1
+  url_launcher: ^6.3.2
 
   # 热力图日历 (暂时注释，后续添加)
   # flutter_heatmap_calendar: any

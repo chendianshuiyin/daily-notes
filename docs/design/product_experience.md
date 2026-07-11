@@ -11,7 +11,7 @@ Daily Notes should feel like a quiet stream of thoughts rather than a document m
 | Voice | Recognition writes partial results directly over a saved content snapshot. Locale and session state are invisible. | Use an explicit voice session, preserve cursor position, expose language, allow stop/retry/insert, and never replace edits made during recognition. |
 | Tags | Desktop tags exist only inside History; mobile uses a modal snapshot. | Make tags part of the app shell, persist desktop expansion, reset stale filters, and preserve selection across list refreshes. |
 | Capture | New notes open a full editor with a prominent title. | Keep title optional and secondary; focus body immediately and support a compact quick-capture path. |
-| Images | Up to four images appear in one attachment strip after all text. | Support ordered image blocks between text blocks, captions, reordering, preview, and multi-select insertion. |
+| Images | Notes support up to 12 ordered images. | Keep text/image order, captions, reordering, preview, multi-select insertion, and an optional stream cover. |
 | Formatting | One plain multiline field. | Add a restrained Markdown-like shortcut set and a formatting menu without turning the app into a page designer. |
 | Review | Random review opens an unfiltered active note. | Add time/tag scope, history, previous/next, and a place to append a reflection. |
 
@@ -33,6 +33,7 @@ Daily Notes should feel like a quiet stream of thoughts rather than a document m
 
 - Home remains the first screen, with one floating compose command.
 - Tags and primary navigation share a left side sheet with a visible close action.
+- Parent tags expose disclosure arrows; collapsing one branch must not reset the active filter.
 - The sheet owns focus while open, restores focus when closed, and respects system back.
 
 ## Capture Flow
@@ -46,7 +47,7 @@ Daily Notes should feel like a quiet stream of thoughts rather than a document m
 ## Review Flow
 
 - Review scope supports all notes, selected tags, untagged notes, and a date range.
-- One note is shown at a time with previous/next, edit, archive, and “append reflection”.
+- One note is shown at a time with previous/next, edit, move-to-trash, and “append reflection”.
 - Review ordering avoids immediate repeats and stores only local review history.
 - Heatmap day selection and tag selection can both start a scoped review.
 

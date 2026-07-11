@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -19,18 +22,60 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final TextEditingController _quickController = TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
   DateTime _selectedDate = _dateOnly(DateTime.now());
   DateTime? _selectedDateFilter;
   String? _selectedTag;
   bool _isQuickSaving = false;
+  bool _isSearching = false;
+  bool _isDrawerOpen = false;
+  String _searchQuery = '';
+  Timer? _updateCheckTimer;
 
   static const _untagged = '__untagged__';
 
   @override
+  void initState() {
+    super.initState();
+    if (kReleaseMode) {
+      _updateCheckTimer = Timer(
+        const Duration(seconds: 3),
+        _checkAutomaticUpdate,
+      );
+    }
+  }
+
+  @override
   void dispose() {
+    _updateCheckTimer?.cancel();
     _quickController.dispose();
+    _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _checkAutomaticUpdate() async {
+    if (!mounted) return;
+    final updates = context.read<AppUpdateProvider>();
+    if (!updates.shouldAutoCheck) return;
+    final release = await updates.checkForUpdates();
+    if (!mounted || release == null) return;
+    final shouldOpen = await showDialog<bool>(
+      context: context,
+      builder: (context) => AppUpdateDialog(
+        currentVersion: updates.currentVersion,
+        release: release,
+      ),
+    );
+    if (shouldOpen == true && mounted) {
+      final opened = await updates.openAvailableUpdate();
+      if (!opened && mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('无法打开更新下载地址')));
+      }
+    }
   }
 
   bool _matchesSelectedTag(Note note) {
@@ -42,8 +87,27 @@ class _HomePageState extends State<HomePage> {
 
   bool _matchesHomeFilter(Note note) {
     final date = _selectedDateFilter;
+    final query = _searchQuery.trim().toLowerCase();
+    final matchesSearch =
+        query.isEmpty ||
+        note.title.toLowerCase().contains(query) ||
+        note.content.toLowerCase().contains(query) ||
+        note.tags.any((tag) => tag.toLowerCase().contains(query));
     return _matchesSelectedTag(note) &&
+        matchesSearch &&
         (date == null || DateUtil.isSameDay(note.createdAt, date));
+  }
+
+  void _openSearch() {
+    setState(() => _isSearching = true);
+  }
+
+  void _closeSearch() {
+    _searchController.clear();
+    setState(() {
+      _isSearching = false;
+      _searchQuery = '';
+    });
   }
 
   Future<void> _saveQuickNote() async {
@@ -232,7 +296,7 @@ class _HomePageState extends State<HomePage> {
                             ),
                         ],
                       ),
-                      const Text('不会发送图片、归档笔记、WebDAV 凭据或隐藏元数据。'),
+                      const Text('不会发送图片、回收站笔记、WebDAV 凭据或隐藏元数据。'),
                       if (errorMessage != null) ...[
                         const SizedBox(height: 8),
                         Text(
@@ -458,7 +522,7 @@ class _HomePageState extends State<HomePage> {
                           ),
                       ],
                     ),
-                    const Text('不会发送图片、归档笔记、WebDAV 凭据或隐藏元数据。'),
+                    const Text('不会发送图片、回收站笔记、WebDAV 凭据或隐藏元数据。'),
                     if (errorMessage != null) ...[
                       const SizedBox(height: 8),
                       Text(
@@ -636,7 +700,7 @@ class _HomePageState extends State<HomePage> {
       builder: (dialogContext) => AlertDialog(
         key: const ValueKey('saveReviewInsightConfirmDialog'),
         title: const Text('保存回顾洞察？'),
-        content: const Text('将创建一条可继续编辑、归档或删除的普通笔记。'),
+        content: const Text('将创建一条可继续编辑或移到回收站的普通笔记。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -715,172 +779,211 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     final aiConfigured = context.watch<AiProvider>().isConfigured;
-    return Scaffold(
-      drawer: Consumer<NoteProvider>(
-        builder: (context, notes, child) {
-          final activeNotes = notes.activeNotes;
-          final counts = <String, int>{};
-          for (final note in activeNotes) {
-            for (final tag in Note.expandTagHierarchy(note.tags)) {
-              counts.update(tag, (value) => value + 1, ifAbsent: () => 1);
-            }
+    final appSettings = context.watch<AppSettingsProvider>();
+    return PopScope(
+      canPop: !_isDrawerOpen,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && _isDrawerOpen) {
+          _scaffoldKey.currentState?.closeDrawer();
+        }
+      },
+      child: Scaffold(
+        key: _scaffoldKey,
+        onDrawerChanged: (isOpened) {
+          if (_isDrawerOpen != isOpened) {
+            setState(() => _isDrawerOpen = isOpened);
           }
-          final tags = counts.keys.toList()..sort();
-          return _HomeTagDrawer(
-            activityByDay: notes.activityByDay,
-            selectedDate: _selectedDateFilter ?? _selectedDate,
-            selectedDateFilter: _selectedDateFilter,
-            tags: tags,
-            counts: counts,
-            totalCount: activeNotes.length,
-            untaggedCount: activeNotes
-                .where((note) => note.tags.isEmpty)
-                .length,
-            selectedTag: _selectedTag,
-            showReviewInsight: aiConfigured,
-            onReviewInsight: () {
-              Navigator.of(context).pop();
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted) {
-                  _showReviewInsight();
-                }
-              });
-            },
-            onSelected: (tag) {
-              setState(() {
-                _selectedTag = tag;
-                _selectedDateFilter = null;
-              });
-              Navigator.of(context).pop();
-            },
-            onDateSelected: (date) {
-              setState(() {
-                _selectedDate = _dateOnly(date);
-                _selectedDateFilter = _dateOnly(date);
-                _selectedTag = null;
-              });
-              Navigator.of(context).pop();
-            },
-            onClearDate: () {
-              setState(() => _selectedDateFilter = null);
-            },
-          );
         },
-      ),
-      appBar: AppBar(
-        leading: Builder(
-          builder: (context) => IconButton(
+        drawer: Consumer<NoteProvider>(
+          builder: (context, notes, child) {
+            final activeNotes = notes.activeNotes;
+            final counts = <String, int>{};
+            for (final note in activeNotes) {
+              for (final tag in Note.expandTagHierarchy(note.tags)) {
+                counts.update(tag, (value) => value + 1, ifAbsent: () => 1);
+              }
+            }
+            final tags = counts.keys.toList()..sort();
+            return _HomeTagDrawer(
+              activityByDay: notes.activityByDay,
+              selectedDate: _selectedDateFilter ?? _selectedDate,
+              selectedDateFilter: _selectedDateFilter,
+              tags: tags,
+              counts: counts,
+              totalCount: activeNotes.length,
+              untaggedCount: activeNotes
+                  .where((note) => note.tags.isEmpty)
+                  .length,
+              selectedTag: _selectedTag,
+              heatmapRange: appSettings.heatmapRange,
+              onHeatmapRangeSelected: appSettings.setHeatmapRange,
+              showReviewInsight: aiConfigured,
+              onReviewInsight: () {
+                Navigator.of(context).pop();
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) {
+                    _showReviewInsight();
+                  }
+                });
+              },
+              onSelected: (tag) {
+                setState(() {
+                  _selectedTag = tag;
+                  _selectedDateFilter = null;
+                });
+                Navigator.of(context).pop();
+              },
+              onDateSelected: (date) {
+                setState(() {
+                  _selectedDate = _dateOnly(date);
+                  _selectedDateFilter = _dateOnly(date);
+                  _selectedTag = null;
+                });
+                Navigator.of(context).pop();
+              },
+              onClearDate: () {
+                setState(() => _selectedDateFilter = null);
+              },
+              onOpenTrash: () {
+                Navigator.of(context).pop();
+                context.push(AppRouter.history);
+              },
+            );
+          },
+        ),
+        appBar: AppBar(
+          leading: IconButton(
             key: const ValueKey('homeSidebarButton'),
-            onPressed: () => Scaffold.of(context).openDrawer(),
+            onPressed: () => _scaffoldKey.currentState?.openDrawer(),
             icon: const Icon(Icons.menu),
             tooltip: '打开标签侧边栏',
           ),
-        ),
-        title: const Row(
-          children: [
-            Icon(Icons.auto_stories_outlined, size: 22),
-            SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                'Daily Notes',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+          title: _isSearching
+              ? TextField(
+                  key: const ValueKey('homeSearchField'),
+                  controller: _searchController,
+                  autofocus: true,
+                  textInputAction: TextInputAction.search,
+                  onChanged: (value) => setState(() => _searchQuery = value),
+                  decoration: const InputDecoration(
+                    hintText: '搜索标题、正文或 #标签',
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    filled: false,
+                  ),
+                )
+              : const Row(
+                  children: [
+                    Icon(Icons.auto_stories_outlined, size: 22),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Daily Notes',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+          actions: [
+            if (aiConfigured)
+              IconButton(
+                key: const ValueKey('askNotesButton'),
+                icon: const Icon(Icons.question_answer_outlined),
+                onPressed: _showAskNotes,
+                tooltip: '问我的笔记',
               ),
+            IconButton(
+              key: const ValueKey('homeSearchButton'),
+              icon: Icon(_isSearching ? Icons.close : Icons.search),
+              onPressed: _isSearching ? _closeSearch : _openSearch,
+              tooltip: _isSearching ? '关闭搜索' : '搜索笔记',
+            ),
+            IconButton(
+              icon: const Icon(Icons.settings),
+              onPressed: () => context.push(AppRouter.settings),
+              tooltip: '设置',
             ),
           ],
         ),
-        actions: [
-          if (aiConfigured)
-            IconButton(
-              key: const ValueKey('askNotesButton'),
-              icon: const Icon(Icons.question_answer_outlined),
-              onPressed: _showAskNotes,
-              tooltip: '问我的笔记',
-            ),
-          IconButton(
-            icon: const Icon(Icons.view_stream_outlined),
-            onPressed: () => context.push(AppRouter.history),
-            tooltip: '全部笔记',
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () => context.push(AppRouter.settings),
-            tooltip: '设置',
-          ),
-        ],
-      ),
-      body: Consumer<NoteProvider>(
-        builder: (context, noteProvider, child) {
-          if (noteProvider.isLoading && noteProvider.notes.isEmpty) {
-            return const Center(child: CircularProgressIndicator());
-          }
+        body: Consumer<NoteProvider>(
+          builder: (context, noteProvider, child) {
+            if (noteProvider.isLoading && noteProvider.notes.isEmpty) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-          if (noteProvider.errorMessage != null) {
-            return _ErrorState(
-              message: noteProvider.errorMessage!,
-              onRetry: noteProvider.loadNotes,
-            );
-          }
+            if (noteProvider.errorMessage != null) {
+              return _ErrorState(
+                message: noteProvider.errorMessage!,
+                onRetry: noteProvider.loadNotes,
+              );
+            }
 
-          final visibleNotes = noteProvider.activeNotes
-              .where(_matchesHomeFilter)
-              .toList();
+            final visibleNotes = noteProvider.activeNotes
+                .where(_matchesHomeFilter)
+                .toList();
 
-          return Align(
-            alignment: Alignment.topCenter,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 980),
-              child: RefreshIndicator(
-                onRefresh: noteProvider.loadNotes,
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 96),
-                  children: [
-                    _QuickCapture(
-                      controller: _quickController,
-                      isSaving: _isQuickSaving,
-                      onChanged: () => setState(() {}),
-                      onInsertTag: _insertQuickTag,
-                      onExpand: _openQuickInEditor,
-                      onSave: _saveQuickNote,
-                    ),
-                    const SizedBox(height: 24),
-                    _SectionHeader(
-                      title: _selectedDateFilter != null
-                          ? '${_formatDay(_selectedDateFilter!)} 的笔记'
-                          : _selectedTag == _untagged
-                          ? '无标签笔记'
-                          : _selectedTag ?? '全部笔记',
-                      count: visibleNotes.length,
-                    ),
-                    const SizedBox(height: 10),
-                    if (visibleNotes.isEmpty)
-                      const _InlineEmptyState()
-                    else
-                      ...visibleNotes.map(
-                        (note) => Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: _NoteCard(
-                            note: note,
-                            onTagSelected: (tag) {
-                              setState(() {
-                                _selectedTag = tag;
-                                _selectedDateFilter = null;
-                              });
-                            },
+            return Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 980),
+                child: RefreshIndicator(
+                  onRefresh: noteProvider.loadNotes,
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 20, 16, 96),
+                    children: [
+                      if (!_isSearching) ...[
+                        _QuickCapture(
+                          controller: _quickController,
+                          isSaving: _isQuickSaving,
+                          onChanged: () => setState(() {}),
+                          onInsertTag: _insertQuickTag,
+                          onExpand: _openQuickInEditor,
+                          onSave: _saveQuickNote,
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+                      _SectionHeader(
+                        title: _searchQuery.trim().isNotEmpty
+                            ? '搜索结果'
+                            : _selectedDateFilter != null
+                            ? '${_formatDay(_selectedDateFilter!)} 的笔记'
+                            : _selectedTag == _untagged
+                            ? '无标签笔记'
+                            : _selectedTag ?? '全部笔记',
+                        count: visibleNotes.length,
+                      ),
+                      const SizedBox(height: 10),
+                      if (visibleNotes.isEmpty)
+                        const _InlineEmptyState()
+                      else
+                        ...visibleNotes.map(
+                          (note) => Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: _NoteCard(
+                              note: note,
+                              onTagSelected: (tag) {
+                                setState(() {
+                                  _selectedTag = tag;
+                                  _selectedDateFilter = null;
+                                });
+                              },
+                            ),
                           ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-          );
-        },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => context.push(AppRouter.editor),
-        tooltip: '新建笔记',
-        child: const Icon(Icons.add),
+            );
+          },
+        ),
+        floatingActionButton: FloatingActionButton(
+          onPressed: () => context.push(AppRouter.editor),
+          tooltip: '新建笔记',
+          child: const Icon(Icons.add),
+        ),
       ),
     );
   }
@@ -1255,6 +1358,8 @@ class _NoteCard extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              _HomeDateBadge(date: note.createdAt),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1268,28 +1373,11 @@ class _NoteCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 6),
                     ],
-                    if (note.bodyPreview.isNotEmpty)
-                      Text(
-                        note.bodyPreview,
-                        maxLines: 4,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodyMedium,
+                    if (note.content.trim().isNotEmpty)
+                      NoteInlinePreview(
+                        note: note,
+                        onTagSelected: onTagSelected,
                       ),
-                    if (note.tags.isNotEmpty) ...[
-                      const SizedBox(height: 9),
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 6,
-                        children: note.tags
-                            .map(
-                              (tag) => _InlineTag(
-                                tag: tag,
-                                onTap: () => onTagSelected(tag),
-                              ),
-                            )
-                            .toList(),
-                      ),
-                    ],
                     const SizedBox(height: 9),
                     Text(
                       DateUtil.formatDateTime(note.updatedAt),
@@ -1298,9 +1386,9 @@ class _NoteCard extends StatelessWidget {
                   ],
                 ),
               ),
-              if (note.images.isNotEmpty) ...[
+              if (note.coverImage case final cover?) ...[
                 const SizedBox(width: 12),
-                NoteThumbnail(image: note.images.first, size: 72),
+                NoteThumbnail(image: cover, size: 72),
               ],
             ],
           ),
@@ -1310,28 +1398,31 @@ class _NoteCard extends StatelessWidget {
   }
 }
 
-class _InlineTag extends StatelessWidget {
-  const _InlineTag({required this.tag, required this.onTap});
+class _HomeDateBadge extends StatelessWidget {
+  const _HomeDateBadge({required this.date});
 
-  final String tag;
-  final VoidCallback onTap;
+  final DateTime date;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Text(
-        tag,
-        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-          color: Theme.of(context).colorScheme.primary,
-          fontWeight: FontWeight.w600,
-        ),
+    return SizedBox(
+      width: 42,
+      child: Column(
+        children: [
+          Text(
+            date.day.toString().padLeft(2, '0'),
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+          Text('${date.month}月', style: Theme.of(context).textTheme.labelSmall),
+        ],
       ),
     );
   }
 }
 
-class _HomeTagDrawer extends StatelessWidget {
+class _HomeTagDrawer extends StatefulWidget {
   const _HomeTagDrawer({
     required this.activityByDay,
     required this.selectedDate,
@@ -1341,11 +1432,14 @@ class _HomeTagDrawer extends StatelessWidget {
     required this.totalCount,
     required this.untaggedCount,
     required this.selectedTag,
+    required this.heatmapRange,
+    required this.onHeatmapRangeSelected,
     required this.showReviewInsight,
     required this.onReviewInsight,
     required this.onSelected,
     required this.onDateSelected,
     required this.onClearDate,
+    required this.onOpenTrash,
   });
 
   final Map<DateTime, int> activityByDay;
@@ -1356,11 +1450,82 @@ class _HomeTagDrawer extends StatelessWidget {
   final int totalCount;
   final int untaggedCount;
   final String? selectedTag;
+  final HeatmapRange heatmapRange;
+  final ValueChanged<HeatmapRange> onHeatmapRangeSelected;
   final bool showReviewInsight;
   final VoidCallback onReviewInsight;
   final ValueChanged<String?> onSelected;
   final ValueChanged<DateTime> onDateSelected;
   final VoidCallback onClearDate;
+  final VoidCallback onOpenTrash;
+
+  @override
+  State<_HomeTagDrawer> createState() => _HomeTagDrawerState();
+}
+
+class _HomeTagDrawerState extends State<_HomeTagDrawer> {
+  final Set<String> _collapsedTags = {};
+
+  List<_TagTreeNode> _buildTagTree() {
+    final roots = <_TagTreeNode>[];
+    final nodesByTag = <String, _TagTreeNode>{};
+    for (final tag in widget.tags) {
+      final parts = tag.substring(1).split('/');
+      for (var index = 0; index < parts.length; index++) {
+        final fullTag = '#${parts.take(index + 1).join('/')}';
+        final node = nodesByTag.putIfAbsent(
+          fullTag,
+          () => _TagTreeNode(fullTag: fullTag, label: parts[index]),
+        );
+        if (index == 0) {
+          if (!roots.contains(node)) {
+            roots.add(node);
+          }
+        } else {
+          final parentTag = '#${parts.take(index).join('/')}';
+          final parent = nodesByTag[parentTag]!;
+          if (!parent.children.contains(node)) {
+            parent.children.add(node);
+          }
+        }
+      }
+    }
+    return roots;
+  }
+
+  List<Widget> _buildTagTiles(List<_TagTreeNode> nodes, [int depth = 0]) {
+    final tiles = <Widget>[];
+    for (final node in nodes) {
+      final expanded = !_collapsedTags.contains(node.fullTag);
+      tiles.add(
+        _DrawerTagTile(
+          key: ValueKey('homeTag-${node.fullTag}'),
+          label: node.label,
+          count: widget.counts[node.fullTag] ?? 0,
+          selected: widget.selectedTag == node.fullTag,
+          depth: depth,
+          hasChildren: node.children.isNotEmpty,
+          expanded: expanded,
+          onToggle: node.children.isEmpty
+              ? null
+              : () {
+                  setState(() {
+                    if (expanded) {
+                      _collapsedTags.add(node.fullTag);
+                    } else {
+                      _collapsedTags.remove(node.fullTag);
+                    }
+                  });
+                },
+          onTap: () => widget.onSelected(node.fullTag),
+        ),
+      );
+      if (expanded && node.children.isNotEmpty) {
+        tiles.addAll(_buildTagTiles(node.children, depth + 1));
+      }
+    }
+    return tiles;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1395,21 +1560,58 @@ class _HomeTagDrawer extends StatelessWidget {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-              child: NoteActivityHeatmap(
-                activityByDay: activityByDay,
-                selectedDate: selectedDate,
-                onDateSelected: onDateSelected,
+              padding: const EdgeInsets.fromLTRB(16, 0, 12, 8),
+              child: Row(
+                children: [
+                  Text(
+                    '最近 ${widget.heatmapRange.label}',
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const Spacer(),
+                  PopupMenuButton<HeatmapRange>(
+                    key: const ValueKey('heatmapRangeMenu'),
+                    tooltip: '设置热力图范围',
+                    icon: const Icon(Icons.calendar_view_month_outlined),
+                    onSelected: widget.onHeatmapRangeSelected,
+                    itemBuilder: (context) => [
+                      for (final range in HeatmapRange.values)
+                        PopupMenuItem(
+                          value: range,
+                          child: Row(
+                            children: [
+                              if (range == widget.heatmapRange)
+                                const Icon(Icons.check, size: 18)
+                              else
+                                const SizedBox(width: 18),
+                              const SizedBox(width: 10),
+                              Text('最近 ${range.label}'),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
               ),
             ),
-            if (selectedDateFilter case final date?)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+              child: NoteActivityHeatmap(
+                activityByDay: widget.activityByDay,
+                selectedDate: widget.selectedDate,
+                onDateSelected: widget.onDateSelected,
+                weeks: widget.heatmapRange.weeks,
+              ),
+            ),
+            if (widget.selectedDateFilter case final date?)
               ListTile(
                 key: const ValueKey('homeDateFilter'),
                 dense: true,
                 leading: const Icon(Icons.calendar_today_outlined, size: 18),
                 title: Text('${date.month}月${date.day}日的笔记'),
                 trailing: IconButton(
-                  onPressed: onClearDate,
+                  onPressed: widget.onClearDate,
                   icon: const Icon(Icons.close),
                   tooltip: '清除日期筛选',
                 ),
@@ -1419,7 +1621,7 @@ class _HomeTagDrawer extends StatelessWidget {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(8, 8, 8, 24),
                 children: [
-                  if (showReviewInsight)
+                  if (widget.showReviewInsight)
                     ListTile(
                       key: const ValueKey('reviewInsightDrawerItem'),
                       dense: true,
@@ -1430,25 +1632,38 @@ class _HomeTagDrawer extends StatelessWidget {
                       leading: const Icon(Icons.insights_outlined, size: 18),
                       title: const Text('回顾洞察'),
                       trailing: const Icon(Icons.chevron_right, size: 18),
-                      onTap: onReviewInsight,
+                      onTap: widget.onReviewInsight,
                     ),
-                  if (showReviewInsight) const Divider(),
+                  if (widget.showReviewInsight) const Divider(),
+                  ListTile(
+                    key: const ValueKey('trashDrawerItem'),
+                    dense: true,
+                    minTileHeight: 40,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                    leading: const Icon(Icons.delete_sweep_outlined, size: 18),
+                    title: const Text('回收站'),
+                    trailing: const Icon(Icons.chevron_right, size: 18),
+                    onTap: widget.onOpenTrash,
+                  ),
+                  const Divider(),
                   _DrawerTagTile(
                     key: const ValueKey('homeTag-all'),
                     label: '全部笔记',
-                    count: totalCount,
-                    selected: selectedTag == null && selectedDateFilter == null,
+                    count: widget.totalCount,
+                    selected:
+                        widget.selectedTag == null &&
+                        widget.selectedDateFilter == null,
                     icon: Icons.view_stream_outlined,
-                    onTap: () => onSelected(null),
+                    onTap: () => widget.onSelected(null),
                   ),
-                  if (untaggedCount > 0)
+                  if (widget.untaggedCount > 0)
                     _DrawerTagTile(
                       key: const ValueKey('homeTag-untagged'),
                       label: '无标签',
-                      count: untaggedCount,
-                      selected: selectedTag == _HomePageState._untagged,
+                      count: widget.untaggedCount,
+                      selected: widget.selectedTag == _HomePageState._untagged,
                       icon: Icons.label_off_outlined,
-                      onTap: () => onSelected(_HomePageState._untagged),
+                      onTap: () => widget.onSelected(_HomePageState._untagged),
                     ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(12, 18, 12, 6),
@@ -1459,21 +1674,12 @@ class _HomeTagDrawer extends StatelessWidget {
                       ),
                     ),
                   ),
-                  for (final tag in tags)
-                    _DrawerTagTile(
-                      key: ValueKey('homeTag-$tag'),
-                      label: tag.substring(1).split('/').last,
-                      count: counts[tag] ?? 0,
-                      selected: selectedTag == tag,
-                      depth: tag.substring(1).split('/').length - 1,
-                      icon: Icons.tag,
-                      onTap: () => onSelected(tag),
-                    ),
-                  if (tags.isEmpty)
+                  ..._buildTagTiles(_buildTagTree()),
+                  if (widget.tags.isEmpty)
                     Padding(
                       padding: const EdgeInsets.all(12),
                       child: Text(
-                        '正文中的 #标签 会显示在这里',
+                        '正文标签会显示在这里',
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ),
@@ -1493,17 +1699,23 @@ class _DrawerTagTile extends StatelessWidget {
     required this.label,
     required this.count,
     required this.selected,
-    required this.icon,
     required this.onTap,
+    this.icon,
     this.depth = 0,
+    this.hasChildren = false,
+    this.expanded = false,
+    this.onToggle,
   });
 
   final String label;
   final int count;
   final bool selected;
-  final IconData icon;
+  final IconData? icon;
   final VoidCallback onTap;
   final int depth;
+  final bool hasChildren;
+  final bool expanded;
+  final VoidCallback? onToggle;
 
   @override
   Widget build(BuildContext context) {
@@ -1511,11 +1723,27 @@ class _DrawerTagTile extends StatelessWidget {
     return ListTile(
       dense: true,
       minTileHeight: 40,
-      contentPadding: EdgeInsets.only(left: 12 + depth * 18, right: 12),
+      contentPadding: EdgeInsets.only(left: 8 + depth * 16, right: 12),
+      horizontalTitleGap: 6,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
       selected: selected,
-      selectedTileColor: colors.primaryContainer,
-      leading: Icon(icon, size: 18),
+      selectedTileColor: colors.primary.withValues(alpha: 0.1),
+      selectedColor: colors.primary,
+      leading: icon != null
+          ? Icon(icon, size: 18)
+          : hasChildren
+          ? IconButton(
+              key: ValueKey('tagToggle-$label-$depth'),
+              onPressed: onToggle,
+              icon: Icon(
+                expanded ? Icons.expand_more : Icons.chevron_right,
+                size: 20,
+              ),
+              tooltip: expanded ? '折叠 $label' : '展开 $label',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+            )
+          : const SizedBox(width: 32),
       title: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
       trailing: Text(count.toString()),
       onTap: onTap,
@@ -1523,24 +1751,38 @@ class _DrawerTagTile extends StatelessWidget {
   }
 }
 
+class _TagTreeNode {
+  _TagTreeNode({required this.fullTag, required this.label});
+
+  final String fullTag;
+  final String label;
+  final List<_TagTreeNode> children = [];
+}
+
 class _InlineEmptyState extends StatelessWidget {
   const _InlineEmptyState();
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Row(
-          children: [
-            Icon(
-              Icons.edit_note_outlined,
-              color: Theme.of(context).colorScheme.primary,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        children: [
+          Icon(
+            Icons.edit_note_outlined,
+            size: 20,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              '还没有笔记，在上方写下第一个想法。',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
-            const SizedBox(width: 10),
-            const Expanded(child: Text('还没有笔记，在上方写下第一个想法。')),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

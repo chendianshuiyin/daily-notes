@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
+import '../../../core/theme/app_color_palette.dart';
+import '../../../core/widgets/widgets.dart';
 import '../../../data/services/services.dart';
 import '../../providers/providers.dart';
 
@@ -8,47 +11,159 @@ import '../../providers/providers.dart';
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
 
-  Future<void> _copyBackup(BuildContext context) async {
-    final noteProvider = context.read<NoteProvider>();
-    try {
-      await Clipboard.setData(ClipboardData(text: noteProvider.createBackup()));
-      if (!context.mounted) {
-        return;
-      }
-      _showMessage(context, '已复制 ${noteProvider.notes.length} 条笔记的 JSON 备份');
-    } catch (_) {
-      if (context.mounted) {
-        _showMessage(context, '复制备份失败，请重试');
+  static const _portability = NotePortabilityService();
+
+  Future<void> _checkForUpdates(BuildContext context) async {
+    final updates = context.read<AppUpdateProvider>();
+    final release = await updates.checkForUpdates();
+    if (!context.mounted) return;
+    if (release == null) {
+      _showMessage(
+        context,
+        updates.errorMessage ?? '当前已是最新版本 v${updates.currentVersion}',
+      );
+      return;
+    }
+    final shouldOpen = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AppUpdateDialog(
+        currentVersion: updates.currentVersion,
+        release: release,
+      ),
+    );
+    if (shouldOpen == true && context.mounted) {
+      final opened = await updates.openAvailableUpdate();
+      if (!opened && context.mounted) {
+        _showMessage(context, '无法打开更新下载地址');
       }
     }
   }
 
-  Future<void> _restoreBackup(BuildContext context) async {
+  Future<void> _exportNotes(BuildContext context) async {
+    final format = await showModalBottomSheet<NoteExportFormat>(
+      context: context,
+      constraints: const BoxConstraints(maxWidth: 640),
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    '选择导出格式',
+                    style: Theme.of(sheetContext).textTheme.titleMedium,
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: () => Navigator.of(sheetContext).pop(),
+                    icon: const Icon(Icons.close),
+                    tooltip: '关闭',
+                  ),
+                ],
+              ),
+              ListTile(
+                key: const ValueKey('exportMarkdownZipOption'),
+                leading: const Icon(Icons.folder_zip_outlined),
+                title: const Text('Markdown ZIP'),
+                subtitle: const Text('跨应用迁移，包含 Markdown 与图片目录'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.of(
+                  sheetContext,
+                ).pop(NoteExportFormat.markdownZip),
+              ),
+              ListTile(
+                key: const ValueKey('exportJsonOption'),
+                leading: const Icon(Icons.data_object),
+                title: const Text('Daily Notes JSON'),
+                subtitle: const Text('无损备份，保留内容块、图片和完整元数据'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.of(
+                  sheetContext,
+                ).pop(NoteExportFormat.dailyNotesJson),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (format == null || !context.mounted) {
+      return;
+    }
+    final noteProvider = context.read<NoteProvider>();
+    if (noteProvider.notes.isEmpty) {
+      _showMessage(context, '还没有可导出的笔记');
+      return;
+    }
     try {
-      final clipboardData = await Clipboard.getData(Clipboard.kTextPlain);
-      if (!context.mounted) {
+      _showMessage(context, '正在准备 ${noteProvider.notes.length} 条笔记…');
+      final bytes = await _portability.export(noteProvider.notes, format);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      final date = DateTime.now();
+      final stamp =
+          '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+      final isMarkdown = format == NoteExportFormat.markdownZip;
+      final fileName = isMarkdown
+          ? 'daily-notes-$stamp-markdown.zip'
+          : 'daily-notes-$stamp-backup.json';
+      final savedPath = await FilePicker.platform.saveFile(
+        dialogTitle: '导出笔记',
+        fileName: fileName,
+        type: FileType.custom,
+        allowedExtensions: [isMarkdown ? 'zip' : 'json'],
+        bytes: bytes,
+        lockParentWindow: true,
+      );
+      if (!context.mounted || (!kIsWeb && savedPath == null)) return;
+      _showMessage(context, '已导出 ${noteProvider.notes.length} 条笔记');
+    } catch (_) {
+      if (context.mounted) {
+        _showMessage(context, '导出失败，请重试或减少单次导出内容');
+      }
+    }
+  }
+
+  Future<void> _importNotes(BuildContext context) async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        dialogTitle: '导入笔记',
+        type: FileType.custom,
+        allowedExtensions: ['zip', 'md', 'markdown', 'json'],
+        allowMultiple: false,
+        withData: true,
+        lockParentWindow: true,
+      );
+      if (result == null || !context.mounted) return;
+      final file = result.files.single;
+      final bytes = file.bytes;
+      if (bytes == null) {
+        _showMessage(context, '无法读取所选文件');
         return;
       }
-
-      final source = clipboardData?.text?.trim() ?? '';
-      if (source.isEmpty) {
-        _showMessage(context, '剪贴板中没有可导入的备份');
-        return;
-      }
-
+      _showMessage(context, '正在检查 ${file.name}…');
+      final bundle = await _portability.inspectImport(file.name, bytes);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
       final noteProvider = context.read<NoteProvider>();
-      final backup = noteProvider.inspectBackup(source);
-      if (backup.notes.isEmpty) {
-        _showMessage(context, '备份中没有笔记');
+      if (bundle.notes.isEmpty) {
+        _showMessage(context, '文件中没有可导入的笔记');
         return;
       }
-
+      final imageCount = bundle.notes.fold<int>(
+        0,
+        (total, note) => total + note.images.length,
+      );
       final shouldRestore = await showDialog<bool>(
         context: context,
         builder: (dialogContext) => AlertDialog(
-          title: const Text('恢复笔记备份？'),
+          key: const ValueKey('confirmFileImportDialog'),
+          title: const Text('导入这些笔记？'),
           content: Text(
-            '将导入 ${backup.notes.length} 条笔记。现有同 ID 笔记会被备份内容覆盖，其他笔记会保留。',
+            '${bundle.formatLabel} 中包含 ${bundle.notes.length} 条笔记'
+            '${imageCount == 0 ? '' : '、$imageCount 张图片'}。同 ID 笔记将以导入内容覆盖，其他笔记保留。',
           ),
           actions: [
             TextButton(
@@ -56,8 +171,9 @@ class SettingsPage extends StatelessWidget {
               child: const Text('取消'),
             ),
             FilledButton(
+              key: const ValueKey('confirmFileImportButton'),
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('恢复'),
+              child: const Text('确认导入'),
             ),
           ],
         ),
@@ -67,9 +183,11 @@ class SettingsPage extends StatelessWidget {
         return;
       }
 
-      await noteProvider.restoreBackup(backup);
+      await noteProvider.restoreBackup(
+        NoteBackup(exportedAt: DateTime.now(), notes: bundle.notes),
+      );
       if (context.mounted) {
-        _showMessage(context, '已恢复 ${backup.notes.length} 条笔记');
+        _showMessage(context, '已导入 ${bundle.notes.length} 条笔记');
       }
     } on FormatException catch (error) {
       if (context.mounted) {
@@ -77,7 +195,7 @@ class SettingsPage extends StatelessWidget {
       }
     } catch (_) {
       if (context.mounted) {
-        _showMessage(context, '恢复备份失败，请检查内容后重试');
+        _showMessage(context, '导入失败，请检查文件后重试');
       }
     }
   }
@@ -493,6 +611,7 @@ class SettingsPage extends StatelessWidget {
           final noteCount = context.watch<NoteProvider>().notes.length;
           final webDav = context.watch<WebDavProvider>();
           final ai = context.watch<AiProvider>();
+          final updates = context.watch<AppUpdateProvider>();
           final noteProvider = context.read<NoteProvider>();
           return Align(
             alignment: Alignment.topCenter,
@@ -505,23 +624,28 @@ class SettingsPage extends StatelessWidget {
                   const SizedBox(height: 20),
                   _SettingsSection(
                     title: '外观',
-                    children: [_ThemeModeItem(settings: settings)],
+                    children: [
+                      _ColorPaletteItem(settings: settings),
+                      _ThemeModeItem(settings: settings),
+                    ],
                   ),
                   const SizedBox(height: 20),
                   _SettingsSection(
                     title: '数据管理',
                     children: [
                       _SettingsItem(
-                        icon: Icons.copy_all_outlined,
-                        title: '复制笔记备份',
-                        subtitle: '将全部图文笔记复制为 JSON',
-                        onTap: () => _copyBackup(context),
+                        key: const ValueKey('exportNotesItem'),
+                        icon: Icons.ios_share_outlined,
+                        title: '导出笔记',
+                        subtitle: 'Markdown ZIP / JSON 文件',
+                        onTap: () => _exportNotes(context),
                       ),
                       _SettingsItem(
-                        icon: Icons.settings_backup_restore_outlined,
-                        title: '从剪贴板恢复',
-                        subtitle: '合并备份，同 ID 内容将覆盖',
-                        onTap: () => _restoreBackup(context),
+                        key: const ValueKey('importNotesItem'),
+                        icon: Icons.file_open_outlined,
+                        title: '导入笔记',
+                        subtitle: '支持 ZIP、Markdown 与 JSON',
+                        onTap: () => _importNotes(context),
                       ),
                     ],
                   ),
@@ -531,7 +655,7 @@ class SettingsPage extends StatelessWidget {
                     children: [
                       _SettingsItem(
                         key: const ValueKey('aiConfigItem'),
-                        icon: Icons.auto_awesome_outlined,
+                        icon: Icons.memory_outlined,
                         title: '远端模型配置',
                         subtitle: ai.isConfigured
                             ? '${ai.config!.model} · 已加密保存'
@@ -600,6 +724,28 @@ class SettingsPage extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 20),
+                  _SettingsSection(
+                    title: '更新',
+                    children: [
+                      _AutoUpdateItem(updates: updates),
+                      _SettingsItem(
+                        key: const ValueKey('checkAppUpdateItem'),
+                        icon: Icons.system_update_outlined,
+                        title: '检查更新',
+                        subtitle: updates.availableRelease != null
+                            ? '发现 v${updates.availableRelease!.version}'
+                            : updates.errorMessage ??
+                                  '当前版本 v${updates.currentVersion}',
+                        trailing: updates.isChecking
+                            ? const _SettingsProgress()
+                            : null,
+                        onTap: updates.isChecking
+                            ? null
+                            : () => _checkForUpdates(context),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
                   const _SettingsSection(
                     title: '关于',
                     children: [
@@ -628,28 +774,19 @@ class _SettingsIntro extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-      ),
+    final colors = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
           Container(
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: Theme.of(
-                context,
-              ).colorScheme.secondary.withValues(alpha: 0.12),
+              color: colors.primaryContainer,
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(
-              Icons.lock_outline,
-              color: Theme.of(context).colorScheme.secondary,
-            ),
+            child: Icon(Icons.lock_outline, color: colors.primary),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -684,30 +821,21 @@ class _SettingsSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.only(bottom: 6),
           child: Text(
             title,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              color: Theme.of(context).colorScheme.primary,
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
         ),
-        Container(
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: Theme.of(context).colorScheme.outlineVariant,
-            ),
-          ),
-          child: Column(
-            children: [
-              for (var index = 0; index < children.length; index++) ...[
-                children[index],
-                if (index != children.length - 1) const Divider(),
-              ],
+        Column(
+          children: [
+            for (var index = 0; index < children.length; index++) ...[
+              children[index],
+              if (index != children.length - 1) const Divider(indent: 56),
             ],
-          ),
+          ],
         ),
       ],
     );
@@ -736,6 +864,7 @@ class _SettingsItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
+      contentPadding: EdgeInsets.zero,
       leading: Icon(icon),
       title: Text(title),
       subtitle: Text(subtitle),
@@ -766,8 +895,9 @@ class _ThemeModeItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: const Icon(Icons.palette_outlined),
-      title: const Text('主题'),
+      contentPadding: EdgeInsets.zero,
+      leading: const Icon(Icons.brightness_6_outlined),
+      title: const Text('明暗模式'),
       subtitle: Padding(
         padding: const EdgeInsets.only(top: 8),
         child: SegmentedButton<ThemeMode>(
@@ -793,8 +923,71 @@ class _ThemeModeItem extends StatelessWidget {
           onSelectionChanged: (selection) {
             settings.setThemeMode(selection.first);
           },
+          style: ButtonStyle(
+            shape: WidgetStatePropertyAll(
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+          ),
         ),
       ),
+    );
+  }
+}
+
+class _ColorPaletteItem extends StatelessWidget {
+  const _ColorPaletteItem({required this.settings});
+
+  final AppSettingsProvider settings;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: const Icon(Icons.color_lens_outlined),
+      title: const Text('配色'),
+      subtitle: Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: SegmentedButton<AppColorPalette>(
+          key: const ValueKey('colorPaletteSegmentedButton'),
+          showSelectedIcon: false,
+          segments: [
+            for (final palette in AppColorPalette.values)
+              ButtonSegment(
+                value: palette,
+                label: Text(palette.shortLabel),
+                tooltip: palette.label,
+              ),
+          ],
+          selected: {settings.colorPalette},
+          onSelectionChanged: (selection) {
+            settings.setColorPalette(selection.first);
+          },
+          style: ButtonStyle(
+            shape: WidgetStatePropertyAll(
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AutoUpdateItem extends StatelessWidget {
+  const _AutoUpdateItem({required this.updates});
+
+  final AppUpdateProvider updates;
+
+  @override
+  Widget build(BuildContext context) {
+    return SwitchListTile(
+      key: const ValueKey('autoUpdateSwitch'),
+      contentPadding: EdgeInsets.zero,
+      secondary: const Icon(Icons.update_outlined),
+      title: const Text('自动检查更新'),
+      subtitle: const Text('每 24 小时检查一次，不会自动安装'),
+      value: updates.autoCheck,
+      onChanged: updates.setAutoCheck,
     );
   }
 }

@@ -1,6 +1,5 @@
 import 'package:appflowy_editor/appflowy_editor.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:daily_notes/main.dart';
@@ -28,32 +27,20 @@ Future<void> enterNoteBody(WidgetTester tester, String text) async {
   await tester.pump();
 }
 
+Future<void> openTrash(WidgetTester tester) async {
+  await tester.tap(find.byKey(const ValueKey('homeSidebarButton')));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(const ValueKey('trashDrawerItem')));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   final testRepository = _MemoryNoteRepository();
   final testApp = DailyNotesApp(noteRepository: testRepository);
-  String clipboardText = '';
 
   setUp(() {
     testRepository.clear();
     SharedPreferences.setMockInitialValues({});
-    clipboardText = '';
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(SystemChannels.platform, (call) async {
-          if (call.method == 'Clipboard.setData') {
-            final arguments = Map<String, dynamic>.from(call.arguments as Map);
-            clipboardText = arguments['text'] as String? ?? '';
-            return null;
-          }
-          if (call.method == 'Clipboard.getData') {
-            return <String, dynamic>{'text': clipboardText};
-          }
-          return null;
-        });
-  });
-
-  tearDown(() {
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(SystemChannels.platform, null);
   });
 
   testWidgets('App builds successfully', (WidgetTester tester) async {
@@ -64,6 +51,33 @@ void main() {
     expect(find.text('记录热力图'), findsNothing);
     expect(find.byKey(const ValueKey('quickCapture')), findsOneWidget);
     expect(find.text('统计总览'), findsNothing);
+    expect(
+      Theme.of(tester.element(find.byType(Scaffold).first)).colorScheme.primary,
+      const Color(0xFF356AE6),
+    );
+  });
+
+  testWidgets('System back closes the home drawer before leaving the app', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(testApp);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('homeSidebarButton')));
+    await tester.pumpAndSettle();
+    expect(
+      tester.state<ScaffoldState>(find.byType(Scaffold).first).isDrawerOpen,
+      isTrue,
+    );
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.state<ScaffoldState>(find.byType(Scaffold).first).isDrawerOpen,
+      isFalse,
+    );
+    expect(find.text('Daily Notes'), findsOneWidget);
   });
 
   testWidgets('Selects a day from the activity heatmap', (
@@ -94,6 +108,42 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('${day.month}月${day.day}日 的笔记'), findsOneWidget);
     expect(find.text('热力图记录'), findsWidgets);
+  });
+
+  testWidgets('Persists the selected heatmap range with aligned month labels', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(360, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(testApp);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('homeSidebarButton')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('最近 3 个月'), findsOneWidget);
+    expect(find.byKey(const ValueKey('heatmapMonthLabels')), findsOneWidget);
+    final monthLabels = find.descendant(
+      of: find.byKey(const ValueKey('heatmapMonthLabels')),
+      matching: find.byType(Text),
+    );
+    final monthPositions = monthLabels
+        .evaluate()
+        .map((element) => tester.getTopLeft(find.byWidget(element.widget)).dx)
+        .toList();
+    for (var index = 1; index < monthPositions.length; index++) {
+      expect(
+        monthPositions[index] - monthPositions[index - 1],
+        greaterThan(24),
+      );
+    }
+    await tester.tap(find.byKey(const ValueKey('heatmapRangeMenu')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('最近 6 个月'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('最近 6 个月'), findsOneWidget);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('daily_notes.heatmap_range'), 'sixMonths');
   });
 
   testWidgets('Saves and expands a home quick-capture draft', (
@@ -180,11 +230,25 @@ void main() {
     expect(find.byKey(const ValueKey('homeTag-untagged')), findsOneWidget);
     expect(find.byKey(const ValueKey('homeTag-#工作')), findsOneWidget);
     expect(find.byKey(const ValueKey('homeTag-#工作/项目')), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(Drawer),
+        matching: find.byIcon(Icons.tag),
+      ),
+      findsNothing,
+    );
+    await tester.tap(find.byTooltip('折叠 工作'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('homeTag-#工作/项目')), findsNothing);
+    await tester.tap(find.byTooltip('展开 工作'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('homeTag-#工作/项目')), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('homeTag-#工作')));
     await tester.pumpAndSettle();
 
     expect(find.text('项目记录'), findsWidgets);
     expect(find.text('随手记录'), findsNothing);
+    expect(find.byKey(const ValueKey('inlineNoteTag-#工作/项目')), findsOneWidget);
   });
 
   testWidgets('Creates and lists a note', (WidgetTester tester) async {
@@ -769,6 +833,10 @@ void main() {
       endOffset: 1,
     );
     await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('selectedImageMoreButton')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('setCoverImageMenuItem')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('moveSelectedImageDownButton')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('saveNoteButton')));
@@ -781,9 +849,11 @@ void main() {
       NoteBlockType.image,
     ]);
     expect(saved.blocks[2].imageId, 'mixed-image');
+    expect(saved.coverImageId, 'mixed-image');
+    expect(saved.coverImage?.id, 'mixed-image');
   });
 
-  testWidgets('Searches and filters active and archived notes', (
+  testWidgets('Searches home and restores or permanently deletes trash', (
     WidgetTester tester,
   ) async {
     final date = DateTime.now();
@@ -794,6 +864,16 @@ void main() {
         content: '#工作/项目 正在推进',
         createdAt: date,
         updatedAt: date,
+      ),
+    );
+    await testRepository.upsertNote(
+      Note(
+        id: 'delete-archived-note',
+        title: '需要永久删除',
+        content: '废弃内容',
+        createdAt: date.subtract(const Duration(days: 2)),
+        updatedAt: date,
+        isArchived: true,
       ),
     );
     await testRepository.upsertNote(
@@ -809,46 +889,86 @@ void main() {
 
     await tester.pumpWidget(testApp);
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('全部笔记'));
-    await tester.pumpAndSettle();
 
-    expect(find.byKey(const ValueKey('historySearchField')), findsOneWidget);
-    expect(find.text('全部 2'), findsOneWidget);
-    expect(find.text('当前 1'), findsOneWidget);
-    expect(find.text('已归档 1'), findsOneWidget);
-    expect(find.byKey(const ValueKey('historyTag-#工作')), findsOneWidget);
-    expect(find.byKey(const ValueKey('historyTag-#工作/项目')), findsOneWidget);
-    expect(find.byKey(const ValueKey('historyTag-#生活')), findsOneWidget);
-    expect(find.byKey(const ValueKey('randomReviewButton')), findsOneWidget);
-
-    await tester.tap(find.byKey(const ValueKey('randomReviewButton')));
+    await tester.tap(find.byKey(const ValueKey('homeSearchButton')));
     await tester.pumpAndSettle();
-    final reviewedTitle = tester.widget<TextField>(
-      find.byKey(const ValueKey('noteTitleField')),
+    expect(find.byKey(const ValueKey('homeSearchField')), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const ValueKey('homeSearchField')),
+      '当前项目',
     );
-    expect(reviewedTitle.controller?.text, '当前项目');
-    await tester.tap(find.byTooltip('返回'));
     await tester.pumpAndSettle();
-
-    await tester.tap(find.byKey(const ValueKey('historyTag-#工作')));
-    await tester.pumpAndSettle();
-    expect(find.text('当前项目'), findsOneWidget);
+    expect(find.text('当前项目'), findsWidgets);
     expect(find.text('归档生活记录'), findsNothing);
-
-    await tester.tap(find.byKey(const ValueKey('historyTag-all')));
+    await tester.tap(find.byTooltip('关闭搜索'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('已归档 1'));
-    await tester.pumpAndSettle();
+    await openTrash(tester);
+
+    expect(find.text('回收站'), findsOneWidget);
+    expect(find.byKey(const ValueKey('trashSearchField')), findsOneWidget);
     expect(find.text('归档生活记录'), findsOneWidget);
     expect(find.text('当前项目'), findsNothing);
 
     await tester.enterText(
-      find.byKey(const ValueKey('historySearchField')),
+      find.byKey(const ValueKey('trashSearchField')),
       '#工作',
     );
     await tester.pumpAndSettle();
     expect(find.text('没有匹配的笔记'), findsOneWidget);
+    await tester.tap(find.byTooltip('清除搜索'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('restoreTrash-archived-note')));
+    await tester.pumpAndSettle();
+    expect(find.text('归档生活记录'), findsNothing);
+    expect(
+      (await testRepository.getNoteById('archived-note'))!.isArchived,
+      isFalse,
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('deleteTrash-delete-archived-note')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('永久删除？'), findsOneWidget);
+    await tester.tap(
+      find.byKey(const ValueKey('confirmPermanentDeleteButton')),
+    );
+    await tester.pumpAndSettle();
+    expect(await testRepository.getNoteById('delete-archived-note'), isNull);
+  });
+
+  testWidgets('Moves a saved note to trash without deleting it', (
+    WidgetTester tester,
+  ) async {
+    final date = DateTime.now();
+    await testRepository.upsertNote(
+      Note(
+        id: 'move-to-trash-note',
+        title: '稍后恢复',
+        content: '仍需保留的内容',
+        createdAt: date,
+        updatedAt: date,
+      ),
+    );
+
+    await tester.pumpWidget(testApp);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('稍后恢复'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('更多操作'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('moveToTrashMenuItem')));
+    await tester.pumpAndSettle();
+    expect(find.text('移到回收站？'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('confirmMoveToTrashButton')));
+    await tester.pumpAndSettle();
+
+    final stored = await testRepository.getNoteById('move-to-trash-note');
+    expect(stored, isNotNull);
+    expect(stored!.isArchived, isTrue);
+    expect(find.text('稍后恢复'), findsNothing);
   });
 
   testWidgets('Moves legacy explicit tags into the note body', (
@@ -867,8 +987,6 @@ void main() {
     );
 
     await tester.pumpWidget(testApp);
-    await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('全部笔记'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('旧标签笔记'));
     await tester.pumpAndSettle();
@@ -890,7 +1008,7 @@ void main() {
     );
   });
 
-  testWidgets('Filters untagged notes and clears a stale tag filter', (
+  testWidgets('Combines home tag and text filters', (
     WidgetTester tester,
   ) async {
     final date = DateTime.now();
@@ -915,20 +1033,23 @@ void main() {
 
     await tester.pumpWidget(testApp);
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('全部笔记'));
+    await tester.tap(find.byKey(const ValueKey('homeSidebarButton')));
     await tester.pumpAndSettle();
-
-    await tester.tap(find.byKey(const ValueKey('historyTag-untagged')));
+    await tester.tap(find.byKey(const ValueKey('homeTag-untagged')));
     await tester.pumpAndSettle();
     expect(find.text('尚未整理'), findsOneWidget);
     expect(find.text('已经整理'), findsNothing);
+    expect(find.textContaining('已归类'), findsNothing);
 
+    await tester.tap(find.byKey(const ValueKey('homeSearchButton')));
+    await tester.pumpAndSettle();
     await tester.enterText(
-      find.byKey(const ValueKey('historySearchField')),
+      find.byKey(const ValueKey('homeSearchField')),
       '已经整理',
     );
     await tester.pumpAndSettle();
-    expect(find.text('已经整理'), findsWidgets);
+    expect(find.text('已经整理'), findsOneWidget);
+    expect(find.textContaining('已归类'), findsNothing);
     expect(find.text('尚未整理'), findsNothing);
   });
 
@@ -938,6 +1059,7 @@ void main() {
 
     await tester.tap(find.byTooltip('设置'));
     await tester.pumpAndSettle();
+    expect(find.byType(Card), findsNothing);
 
     await tester.tap(find.text('深色'));
     await tester.pumpAndSettle();
@@ -946,7 +1068,30 @@ void main() {
     expect(prefs.getString('daily_notes.theme_mode'), 'dark');
   });
 
-  testWidgets('Shows data backup and restore actions', (
+  testWidgets('Persists color palette from settings', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(testApp);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('设置'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('东京'));
+    await tester.pumpAndSettle();
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('daily_notes.color_palette'), 'tokyoNight');
+    expect(
+      Theme.of(
+        tester.element(
+          find.byKey(const ValueKey('colorPaletteSegmentedButton')),
+        ),
+      ).colorScheme.primary,
+      const Color(0xFF2959AA),
+    );
+  });
+
+  testWidgets('Shows file export, import, and synchronization actions', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(testApp);
@@ -955,8 +1100,19 @@ void main() {
     await tester.tap(find.byTooltip('设置'));
     await tester.pumpAndSettle();
 
-    expect(find.text('复制笔记备份'), findsOneWidget);
-    expect(find.text('从剪贴板恢复'), findsOneWidget);
+    expect(find.text('导出笔记'), findsOneWidget);
+    expect(find.text('导入笔记'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('exportNotesItem')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('exportMarkdownZipOption')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('exportJsonOption')), findsOneWidget);
+    expect(find.text('跨应用迁移，包含 Markdown 与图片目录'), findsOneWidget);
+    await tester.tap(find.byTooltip('关闭'));
+    await tester.pumpAndSettle();
 
     await tester.scrollUntilVisible(
       find.byKey(const ValueKey('webDavConfigItem')),
@@ -972,6 +1128,24 @@ void main() {
     expect(find.byKey(const ValueKey('webDavUsernameField')), findsOneWidget);
     expect(find.byKey(const ValueKey('webDavPasswordField')), findsOneWidget);
     expect(find.byKey(const ValueKey('webDavDirectoryField')), findsOneWidget);
+  });
+
+  testWidgets('Shows automatic and manual update controls', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(testApp);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('设置'));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('checkAppUpdateItem')),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.byKey(const ValueKey('autoUpdateSwitch')), findsOneWidget);
+    expect(find.byKey(const ValueKey('checkAppUpdateItem')), findsOneWidget);
+    expect(find.text('每 24 小时检查一次，不会自动安装'), findsOneWidget);
   });
 
   testWidgets('Shows and validates encrypted AI configuration', (
@@ -1012,65 +1186,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('远端 AI 地址必须使用 HTTPS'), findsOneWidget);
-  });
-
-  testWidgets('Copies a valid backup to the clipboard', (
-    WidgetTester tester,
-  ) async {
-    await tester.pumpWidget(testApp);
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byTooltip('新建笔记'));
-    await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const ValueKey('noteTitleField')),
-      '需要备份的笔记',
-    );
-    await enterNoteBody(tester, '备份正文');
-    await tester.tap(find.byKey(const ValueKey('saveNoteButton')));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byTooltip('设置'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('复制笔记备份'));
-    await tester.pump(const Duration(milliseconds: 100));
-
-    final clipboardData = await Clipboard.getData(Clipboard.kTextPlain);
-    final backup = const NoteBackupService().decode(clipboardData!.text!);
-    expect(backup.notes, hasLength(1));
-    expect(backup.notes.single.title, '需要备份的笔记');
-  });
-
-  testWidgets('Restores a backup from the clipboard', (
-    WidgetTester tester,
-  ) async {
-    final now = DateTime.now();
-    final note = Note(
-      id: 'restore-note',
-      title: '从备份恢复的笔记',
-      content: '恢复后的正文',
-      createdAt: now,
-      updatedAt: now,
-    );
-    final source = const NoteBackupService().encode([note]);
-    await Clipboard.setData(ClipboardData(text: source));
-
-    await tester.pumpWidget(testApp);
-    await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('设置'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('从剪贴板恢复'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('恢复笔记备份？'), findsOneWidget);
-    await tester.tap(find.text('恢复'));
-    await tester.pumpAndSettle();
-    expect(find.textContaining('已恢复 1 条笔记'), findsOneWidget);
-
-    await tester.tap(find.byIcon(Icons.arrow_back));
-    await tester.pumpAndSettle();
-    await pumpUntilFound(tester, find.text('从备份恢复的笔记'));
-    expect(find.text('从备份恢复的笔记'), findsWidgets);
   });
 
   testWidgets('Confirms before discarding an unsaved note', (
