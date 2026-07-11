@@ -588,6 +588,64 @@ class _EditorPageState extends State<EditorPage> {
     }
   }
 
+  Future<void> _editImageCaption(String imageId) async {
+    final controller = TextEditingController(
+      text: _blockController.imageCaption(imageId),
+    );
+    final caption = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('图片说明'),
+        content: TextField(
+          key: const ValueKey('imageCaptionField'),
+          controller: controller,
+          autofocus: true,
+          maxLength: 160,
+          decoration: const InputDecoration(hintText: '添加简短说明'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            key: const ValueKey('saveImageCaptionButton'),
+            onPressed: () => Navigator.of(dialogContext).pop(controller.text),
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+    if (caption != null) {
+      await _blockController.setImageCaption(imageId, caption);
+    }
+    await Future<void>.delayed(kThemeAnimationDuration);
+    controller.dispose();
+  }
+
+  Future<void> _replaceImage(String imageId) async {
+    setState(() => _isPickingImages = true);
+    try {
+      final selected = await _imageService.pickImages(availableSlots: 1);
+      if (selected.isNotEmpty) {
+        await _blockController.replaceImage(imageId, selected.single);
+      }
+    } on NoteImageException catch (error) {
+      if (mounted) {
+        _showError(error.message);
+      }
+    } catch (error, stackTrace) {
+      debugPrint('Failed to replace note image: $error\n$stackTrace');
+      if (mounted) {
+        _showError('替换图片失败，请重试');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isPickingImages = false);
+      }
+    }
+  }
+
   Future<void> _showImagePreview(NoteImage image) async {
     await showDialog<void>(
       context: context,
@@ -661,6 +719,101 @@ class _EditorPageState extends State<EditorPage> {
                   padding: const EdgeInsets.all(20),
                   child: NoteMarkdownPreview(markdown: markdown),
                 ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showFormattingTools() async {
+    _blockController.captureInsertionSelection();
+    await showModalBottomSheet<void>(
+      context: context,
+      constraints: const BoxConstraints(maxWidth: 720),
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    '格式',
+                    style: Theme.of(sheetContext).textTheme.titleMedium,
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: () => Navigator.of(sheetContext).pop(),
+                    icon: const Icon(Icons.close),
+                    tooltip: '关闭格式工具',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _FormatButton(
+                    label: 'H1',
+                    tooltip: '一级标题',
+                    onPressed: () =>
+                        _blockController.applyFormat(NoteFormatAction.heading1),
+                  ),
+                  _FormatButton(
+                    label: 'H2',
+                    tooltip: '二级标题',
+                    onPressed: () =>
+                        _blockController.applyFormat(NoteFormatAction.heading2),
+                  ),
+                  _FormatButton(
+                    label: 'H3',
+                    tooltip: '三级标题',
+                    onPressed: () =>
+                        _blockController.applyFormat(NoteFormatAction.heading3),
+                  ),
+                  _FormatButton(
+                    icon: Icons.notes,
+                    tooltip: '正文',
+                    onPressed: () =>
+                        _blockController.applyFormat(NoteFormatAction.body),
+                  ),
+                  _FormatButton(
+                    icon: Icons.format_bold,
+                    tooltip: '加粗',
+                    onPressed: () =>
+                        _blockController.applyFormat(NoteFormatAction.bold),
+                  ),
+                  _FormatButton(
+                    icon: Icons.format_italic,
+                    tooltip: '斜体',
+                    onPressed: () =>
+                        _blockController.applyFormat(NoteFormatAction.italic),
+                  ),
+                  _FormatButton(
+                    icon: Icons.format_underlined,
+                    tooltip: '下划线',
+                    onPressed: () => _blockController.applyFormat(
+                      NoteFormatAction.underline,
+                    ),
+                  ),
+                  _FormatButton(
+                    icon: Icons.format_strikethrough,
+                    tooltip: '删除线',
+                    onPressed: () =>
+                        _blockController.applyFormat(NoteFormatAction.strike),
+                  ),
+                  _FormatButton(
+                    icon: Icons.code,
+                    tooltip: '行内代码',
+                    onPressed: () =>
+                        _blockController.applyFormat(NoteFormatAction.code),
+                  ),
+                ],
               ),
             ],
           ),
@@ -780,6 +933,8 @@ class _EditorPageState extends State<EditorPage> {
               onSelected: (value) {
                 if (value == 'preview') {
                   _showMarkdownPreview();
+                } else if (value == 'format') {
+                  _showFormattingTools();
                 } else if (value == 'archive') {
                   _archiveNote();
                 } else if (value == 'delete') {
@@ -794,6 +949,15 @@ class _EditorPageState extends State<EditorPage> {
                     contentPadding: EdgeInsets.zero,
                     leading: Icon(Icons.visibility_outlined),
                     title: Text('Markdown 预览'),
+                  ),
+                ),
+                const PopupMenuItem(
+                  key: ValueKey('formatToolsMenuItem'),
+                  value: 'format',
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.format_bold),
+                    title: Text('格式工具'),
                   ),
                 ),
                 PopupMenuItem(
@@ -902,6 +1066,8 @@ class _EditorPageState extends State<EditorPage> {
                                   controller: _blockController,
                                   enabled: !_voiceSessionActive,
                                   onPreviewImage: _previewImageById,
+                                  onEditImageCaption: _editImageCaption,
+                                  onReplaceImage: _replaceImage,
                                 ),
                               ),
                               if (_voiceSessionActive) ...[
@@ -973,15 +1139,35 @@ class _EditorPageState extends State<EditorPage> {
                               icon: const Icon(Icons.arrow_downward),
                               tooltip: '下移图片',
                             ),
-                            IconButton(
-                              key: const ValueKey('removeSelectedImageButton'),
-                              onPressed: () =>
-                                  _blockController.removeImage(imageId),
-                              icon: Icon(
-                                Icons.delete_outline,
-                                color: Theme.of(context).colorScheme.error,
-                              ),
-                              tooltip: '删除图片',
+                            PopupMenuButton<String>(
+                              key: const ValueKey('selectedImageMoreButton'),
+                              tooltip: '更多图片操作',
+                              onSelected: (value) {
+                                if (value == 'caption') {
+                                  _editImageCaption(imageId);
+                                } else if (value == 'replace') {
+                                  _replaceImage(imageId);
+                                } else if (value == 'delete') {
+                                  _blockController.removeImage(imageId);
+                                }
+                              },
+                              itemBuilder: (context) => const [
+                                PopupMenuItem(
+                                  key: ValueKey('editImageCaptionMenuItem'),
+                                  value: 'caption',
+                                  child: Text('编辑说明'),
+                                ),
+                                PopupMenuItem(
+                                  value: 'replace',
+                                  child: Text('替换图片'),
+                                ),
+                                PopupMenuItem(
+                                  key: ValueKey('deleteImageMenuItem'),
+                                  value: 'delete',
+                                  child: Text('删除图片'),
+                                ),
+                              ],
+                              icon: const Icon(Icons.more_horiz),
                             ),
                           ] else ...[
                             IconButton(
@@ -1089,6 +1275,45 @@ class _EditorPageState extends State<EditorPage> {
   String _editorDateLabel() {
     final date = _currentNote?.createdAt ?? DateTime.now();
     return '${date.year}年${date.month}月${date.day}日';
+  }
+}
+
+class _FormatButton extends StatelessWidget {
+  const _FormatButton({
+    this.icon,
+    this.label,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  final IconData? icon;
+  final String? label;
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: SizedBox.square(
+        dimension: 44,
+        child: OutlinedButton(
+          onPressed: onPressed,
+          style: OutlinedButton.styleFrom(
+            padding: EdgeInsets.zero,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(6),
+            ),
+          ),
+          child: icon == null
+              ? Text(
+                  label!,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                )
+              : Icon(icon, size: 20),
+        ),
+      ),
+    );
   }
 }
 

@@ -216,11 +216,26 @@ void main() {
       endOffset: 1,
     );
     await tester.pump();
-    final removeImageButton = find.byKey(
-      const ValueKey('removeSelectedImageButton'),
+    final imageMoreButton = find.byKey(
+      const ValueKey('selectedImageMoreButton'),
     );
-    expect(removeImageButton, findsOneWidget);
-    await tester.tap(removeImageButton);
+    expect(imageMoreButton, findsOneWidget);
+    await tester.tap(imageMoreButton);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('编辑说明').last);
+    await tester.pumpAndSettle();
+    final captionField = tester.widget<TextField>(
+      find.byKey(const ValueKey('imageCaptionField')),
+    );
+    captionField.controller!.text = '测试图片说明';
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('saveImageCaptionButton')));
+    await tester.pumpAndSettle();
+    expect(find.text('测试图片说明'), findsOneWidget);
+
+    await tester.tap(imageMoreButton);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('删除图片').last);
     await tester.pumpAndSettle();
     expect(inlineImage, findsNothing);
 

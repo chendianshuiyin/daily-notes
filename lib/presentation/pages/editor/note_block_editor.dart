@@ -10,11 +10,15 @@ class NoteBlockEditor extends StatefulWidget {
     required this.controller,
     required this.enabled,
     required this.onPreviewImage,
+    required this.onEditImageCaption,
+    required this.onReplaceImage,
   });
 
   final NoteBlockEditorController controller;
   final bool enabled;
   final ValueChanged<String> onPreviewImage;
+  final ValueChanged<String> onEditImageCaption;
+  final ValueChanged<String> onReplaceImage;
 
   @override
   State<NoteBlockEditor> createState() => _NoteBlockEditorState();
@@ -65,6 +69,7 @@ class _NoteBlockEditorState extends State<NoteBlockEditor> {
       editable: widget.enabled,
       editorStyle: _editorStyle(context),
       blockComponentBuilders: _blockBuilders(context),
+      blockWrapper: _blockWrapper,
       showMagnifier: _isMobile,
       footer: const SizedBox(height: 120),
     );
@@ -192,14 +197,56 @@ class _NoteBlockEditorState extends State<NoteBlockEditor> {
               icon: const Icon(Icons.arrow_downward, size: 18),
               tooltip: '下移图片',
             ),
-            IconButton(
-              onPressed: () => widget.controller.removeImage(imageId),
-              icon: Icon(Icons.delete_outline, size: 18, color: colors.error),
-              tooltip: '删除图片',
+            PopupMenuButton<String>(
+              tooltip: '更多图片操作',
+              onSelected: (value) {
+                if (value == 'caption') {
+                  widget.onEditImageCaption(imageId);
+                } else if (value == 'replace') {
+                  widget.onReplaceImage(imageId);
+                } else if (value == 'delete') {
+                  widget.controller.removeImage(imageId);
+                }
+              },
+              itemBuilder: (context) => const [
+                PopupMenuItem(value: 'caption', child: Text('编辑说明')),
+                PopupMenuItem(value: 'replace', child: Text('替换图片')),
+                PopupMenuItem(value: 'delete', child: Text('删除图片')),
+              ],
+              icon: const Icon(Icons.more_horiz, size: 18),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _blockWrapper(
+    BuildContext context, {
+    required Node node,
+    required Widget child,
+  }) {
+    if (node.type != ImageBlockKeys.type) {
+      return child;
+    }
+    final caption = node.attributes[noteImageCaptionAttribute] as String? ?? '';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        child,
+        if (caption.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 6, 8, 10),
+            child: Text(
+              caption,
+              key: ValueKey('imageCaption-${node.id}'),
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

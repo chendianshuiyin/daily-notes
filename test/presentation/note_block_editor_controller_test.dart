@@ -129,4 +129,61 @@ void main() {
     expect(controller.blocks.single.level, 2);
     expect(controller.blocks.single.text, isEmpty);
   });
+
+  test('updates caption and replaces image without moving its block', () async {
+    const replacement = NoteImage(
+      id: 'image-replacement',
+      name: 'replacement.png',
+      mimeType: 'image/png',
+      base64Data:
+          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+    );
+    final controller = NoteBlockEditorController(
+      blocks: const [
+        NoteBlock(id: 'before', type: NoteBlockType.paragraph, text: 'Before'),
+        NoteBlock(
+          id: 'image-block',
+          type: NoteBlockType.image,
+          imageId: 'image-1',
+          caption: 'Old caption',
+        ),
+        NoteBlock(id: 'after', type: NoteBlockType.paragraph, text: 'After'),
+      ],
+      images: const [image],
+    );
+    addTearDown(controller.dispose);
+
+    await controller.setImageCaption('image-1', 'Updated caption');
+    await controller.replaceImage('image-1', replacement);
+
+    expect(controller.blocks[1].id, 'image-block');
+    expect(controller.blocks[1].imageId, 'image-replacement');
+    expect(controller.blocks[1].caption, 'Updated caption');
+    expect(controller.images.single.id, 'image-replacement');
+  });
+
+  test('applies formatting to the captured selection', () async {
+    final controller = NoteBlockEditorController(
+      blocks: const [
+        NoteBlock(
+          id: 'paragraph',
+          type: NoteBlockType.paragraph,
+          text: 'Hello',
+        ),
+      ],
+      images: const [],
+    );
+    addTearDown(controller.dispose);
+    controller.editorState.selection = Selection.single(
+      path: const [0],
+      startOffset: 0,
+      endOffset: 5,
+    );
+    controller.captureInsertionSelection();
+
+    controller.applyFormat(NoteFormatAction.bold);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(controller.blocks.single.text, '**Hello**');
+  });
 }

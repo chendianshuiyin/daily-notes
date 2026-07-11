@@ -586,7 +586,23 @@
 
 ### Remaining Work
 
-- Add image captions, replace-image action, and desktop drag handles.
-- Add explicit mobile formatting controls without covering the app save toolbar.
+- Add desktop drag handles for direct image reordering.
 - Recheck Web Wasm compatibility when the editor dependency removes its `dart:html` bridge; this does not affect the current JavaScript Web release.
 - Continue with the opt-in AI organization and review features after these editor details are stable.
+
+## 2026-07-11 Image block and formatting controls
+
+### Completed
+
+- Added optional image captions that render directly below their image block and persist through the app-owned V2 schema.
+- Added replace-image actions on desktop and narrow layouts while preserving the block ID, caption, and mixed-content position.
+- Consolidated caption, replace, and delete actions into a touch-friendly image menu without losing the selected image when the menu takes focus.
+- Added an explicit formatting sheet for H1, H2, H3, body text, bold, italic, underline, strikethrough, and inline code.
+- Restored the captured editor selection before applying a format so opening the bottom sheet does not move the formatting target.
+
+### Verification
+
+- `flutter test`: 45 tests passed, including image caption/replace stability and captured-selection formatting.
+- `flutter analyze`: passed with no issues.
+- Android release APK built successfully at 60.8 MB.
+- Web JavaScript release built successfully with `--no-wasm-dry-run`.

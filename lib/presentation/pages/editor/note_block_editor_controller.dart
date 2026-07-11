@@ -6,6 +6,19 @@ import 'package:flutter/foundation.dart';
 import '../../../data/models/models.dart';
 
 const noteImageIdAttribute = 'noteImageId';
+const noteImageCaptionAttribute = 'noteImageCaption';
+
+enum NoteFormatAction {
+  heading1,
+  heading2,
+  heading3,
+  body,
+  bold,
+  italic,
+  underline,
+  strike,
+  code,
+}
 
 class NoteBlockEditorController extends ChangeNotifier {
   NoteBlockEditorController({
@@ -31,8 +44,16 @@ class NoteBlockEditorController extends ChangeNotifier {
   bool _normalizingShortcut = false;
   bool _normalizationScheduled = false;
   bool _disposed = false;
+  String? _selectedImageId;
 
   void _handleSelectionChanged() {
+    final path = editorState.selection?.end.path;
+    if (path != null) {
+      final node = editorState.document.nodeAtPath(path);
+      _selectedImageId = node?.type == ImageBlockKeys.type
+          ? node?.attributes[noteImageIdAttribute] as String?
+          : null;
+    }
     notifyListeners();
   }
 
@@ -111,12 +132,12 @@ class NoteBlockEditorController extends ChangeNotifier {
   String? get selectedImageId {
     final path = editorState.selection?.end.path;
     if (path == null) {
-      return null;
+      return _selectedImageId;
     }
     final node = editorState.document.nodeAtPath(path);
     return node?.type == ImageBlockKeys.type
         ? node?.attributes[noteImageIdAttribute] as String?
-        : null;
+        : _selectedImageId;
   }
 
   Future<void> insertImages(List<NoteImage> selected) async {
@@ -139,6 +160,55 @@ class NoteBlockEditorController extends ChangeNotifier {
 
   void captureInsertionSelection() {
     _capturedSelection = editorState.selection;
+  }
+
+  void applyFormat(NoteFormatAction action) {
+    if (_capturedSelection != null) {
+      editorState.selection = _capturedSelection;
+    }
+    final headingLevel = switch (action) {
+      NoteFormatAction.heading1 => 1,
+      NoteFormatAction.heading2 => 2,
+      NoteFormatAction.heading3 => 3,
+      NoteFormatAction.body => 0,
+      _ => null,
+    };
+    if (headingLevel != null) {
+      _applyBlockFormat(headingLevel);
+      return;
+    }
+    final command = switch (action) {
+      NoteFormatAction.bold => toggleBoldCommand,
+      NoteFormatAction.italic => toggleItalicCommand,
+      NoteFormatAction.underline => toggleUnderlineCommand,
+      NoteFormatAction.strike => toggleStrikethroughCommand,
+      NoteFormatAction.code => toggleCodeCommand,
+      _ => throw StateError('Unsupported inline format action.'),
+    };
+    command.execute(editorState);
+  }
+
+  void _applyBlockFormat(int headingLevel) {
+    final selection = editorState.selection;
+    if (selection == null) {
+      return;
+    }
+    editorState.formatNode(selection, (node) {
+      final attributes = {
+        ...node.attributes,
+        blockComponentDelta: (node.delta ?? Delta()).toJson(),
+        if (headingLevel > 0) HeadingBlockKeys.level: headingLevel,
+      };
+      if (headingLevel == 0) {
+        attributes.remove(HeadingBlockKeys.level);
+      }
+      return node.copyWith(
+        type: headingLevel == 0
+            ? ParagraphBlockKeys.type
+            : HeadingBlockKeys.type,
+        attributes: attributes,
+      )..id = node.id;
+    });
   }
 
   Future<void> insertText(
@@ -180,6 +250,9 @@ class NoteBlockEditorController extends ChangeNotifier {
       return;
     }
     _images.removeWhere((image) => image.id == imageId);
+    if (_selectedImageId == imageId) {
+      _selectedImageId = null;
+    }
     final transaction = editorState.transaction..deleteNode(node);
     if (editorState.document.root.children.length == 1) {
       transaction.insertNode([0], paragraphNode());
@@ -201,6 +274,44 @@ class NoteBlockEditorController extends ChangeNotifier {
     final target = siblings[targetIndex];
     final newPath = direction < 0 ? target.path : target.path.next;
     await editorState.apply(editorState.transaction..moveNode(newPath, node));
+  }
+
+  String imageCaption(String imageId) {
+    return _findImageNode(imageId)?.attributes[noteImageCaptionAttribute]
+            as String? ??
+        '';
+  }
+
+  Future<void> setImageCaption(String imageId, String caption) async {
+    final node = _findImageNode(imageId);
+    if (node == null) {
+      return;
+    }
+    await editorState.apply(
+      editorState.transaction
+        ..updateNode(node, {noteImageCaptionAttribute: caption.trim()}),
+    );
+  }
+
+  Future<void> replaceImage(String imageId, NoteImage replacement) async {
+    final node = _findImageNode(imageId);
+    if (node == null) {
+      return;
+    }
+    final index = _images.indexWhere((image) => image.id == imageId);
+    if (index == -1) {
+      return;
+    }
+    _images[index] = replacement;
+    if (_selectedImageId == imageId) {
+      _selectedImageId = replacement.id;
+    }
+    await editorState.apply(
+      editorState.transaction..updateNode(node, {
+        ImageBlockKeys.url: replacement.base64Data,
+        noteImageIdAttribute: replacement.id,
+      }),
+    );
   }
 
   NoteImage? imageById(String imageId) {
@@ -232,7 +343,9 @@ class NoteBlockEditorController extends ChangeNotifier {
       if (block.type == NoteBlockType.image) {
         final image = imageById[block.imageId];
         if (image != null) {
-          nodes.add(_imageNode(image, blockId: block.id));
+          nodes.add(
+            _imageNode(image, blockId: block.id, caption: block.caption),
+          );
         }
         continue;
       }
@@ -257,7 +370,11 @@ class NoteBlockEditorController extends ChangeNotifier {
     return nodes;
   }
 
-  static Node _imageNode(NoteImage image, {String? blockId}) {
+  static Node _imageNode(
+    NoteImage image, {
+    String? blockId,
+    String caption = '',
+  }) {
     return Node(
       type: ImageBlockKeys.type,
       id: blockId ?? 'image-${image.id}',
@@ -266,6 +383,7 @@ class NoteBlockEditorController extends ChangeNotifier {
         ImageBlockKeys.align: 'left',
         ImageBlockKeys.width: 360.0,
         noteImageIdAttribute: image.id,
+        noteImageCaptionAttribute: caption,
       },
     );
   }
@@ -290,6 +408,7 @@ class NoteBlockEditorController extends ChangeNotifier {
               ? ''
               : DeltaMarkdownEncoder().convert(node.delta!),
           imageId: imageId,
+          caption: node.attributes[noteImageCaptionAttribute] as String? ?? '',
           level: node.attributes[HeadingBlockKeys.level] as int? ?? 0,
           indent: indent,
         ),
