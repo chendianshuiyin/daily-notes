@@ -109,6 +109,55 @@ void main() {
     expect(find.textContaining('可以保存并显示'), findsWidgets);
   });
 
+  testWidgets('Previews Markdown without changing the draft', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(testApp);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('新建笔记'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('noteContentField')),
+      '# Preview heading\n- first item\n#tag',
+    );
+
+    await tester.tap(find.byTooltip('更多操作'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Markdown 预览'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('markdownPreview')), findsOneWidget);
+    final preview = find.byKey(const ValueKey('markdownPreview'));
+    expect(
+      find.descendant(
+        of: preview,
+        matching: find.text('Preview heading', findRichText: true),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: preview,
+        matching: find.textContaining('first item', findRichText: true),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: preview,
+        matching: find.textContaining('#tag', findRichText: true),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('closeMarkdownPreviewButton')));
+    await tester.pumpAndSettle();
+    final field = tester.widget<TextField>(
+      find.byKey(const ValueKey('noteContentField')),
+    );
+    expect(field.controller?.text, contains('# Preview heading'));
+  });
+
   testWidgets('Displays and removes an existing image attachment', (
     WidgetTester tester,
   ) async {

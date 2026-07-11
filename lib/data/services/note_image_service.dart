@@ -19,16 +19,16 @@ class NoteImageException implements Exception {
 class NoteImageService {
   const NoteImageService();
 
-  static const int maxImagesPerNote = 4;
+  static const int maxImagesPerNote = 12;
   static const int maxSourceBytes = 12 * 1024 * 1024;
   static const int maxStoredBytes = 2 * 1024 * 1024;
 
   Future<List<NoteImage>> pickImages({required int availableSlots}) async {
     if (availableSlots <= 0) {
-      throw const NoteImageException('每条笔记最多添加 4 张图片');
+      throw const NoteImageException('每条笔记最多添加 12 张图片');
     }
 
-    final result = await FilePicker.pickFiles(
+    final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: const ['jpg', 'jpeg', 'png', 'webp'],
       allowMultiple: availableSlots > 1,

@@ -58,19 +58,19 @@ dependencies:
   hive_ce_flutter: ^2.3.4
 
   # 跨平台图片选择与压缩
-  file_picker: ^11.0.2
+  file_picker: ^10.3.10
   image: ^4.8.0
 
   # Android、Web 与 Windows 短语音转写
   speech_to_text: ^7.4.0
 
+  # 块编辑、Markdown 快捷输入与跨平台选择
+  appflowy_editor: ^6.2.0
+
   # WebDAV 同步与加密凭据存储
   webdav_client: ^1.2.2
   dio: ^5.10.0
   flutter_secure_storage: ^10.3.1
-
-  # 富文本编辑器 (暂时注释，后续添加)
-  # flutter_quill: any
 
   # 热力图日历 (暂时注释，后续添加)
   # flutter_heatmap_calendar: any

@@ -10,6 +10,7 @@ import '../../../data/models/models.dart';
 import '../../../data/services/services.dart';
 import '../../providers/providers.dart';
 import '../../routers/app_router.dart';
+import 'note_markdown_preview.dart';
 
 enum _VoicePhase { idle, starting, listening, reviewing }
 
@@ -30,6 +31,7 @@ class _EditorPageState extends State<EditorPage> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _contentController = TextEditingController();
   final NoteImageService _imageService = const NoteImageService();
+  final NoteMarkdownCodec _markdownCodec = const NoteMarkdownCodec();
   final SpeechToText _speech = SpeechToText();
 
   bool _isLoading = false;
@@ -150,11 +152,28 @@ class _EditorPageState extends State<EditorPage> {
 
     setState(() => _isSaving = true);
     try {
+      final textBlocks = _markdownCodec
+          .decode(content, existingBlocks: _currentNote?.blocks ?? const [])
+          .blocks;
+      final existingImageBlocks = {
+        for (final block in _currentNote?.blocks ?? const <NoteBlock>[])
+          if (block.type == NoteBlockType.image && block.imageId != null)
+            block.imageId!: block,
+      };
+      final imageBlocks = _images.map((image) {
+        return existingImageBlocks[image.id] ??
+            NoteBlock(
+              id: 'image-${image.id}',
+              type: NoteBlockType.image,
+              imageId: image.id,
+            );
+      });
       final note = await context.read<NoteProvider>().saveNote(
         id: _currentNote?.id ?? widget.noteId,
         title: title,
         content: content,
         images: _images,
+        blocks: [...textBlocks, ...imageBlocks],
         tags: Note.extractTags('$title $content'),
       );
 
@@ -298,7 +317,7 @@ class _EditorPageState extends State<EditorPage> {
   Future<void> _pickImages() async {
     final availableSlots = NoteImageService.maxImagesPerNote - _images.length;
     if (availableSlots <= 0) {
-      _showError('每条笔记最多添加 4 张图片');
+      _showError('每条笔记最多添加 12 张图片');
       return;
     }
 
@@ -617,6 +636,54 @@ class _EditorPageState extends State<EditorPage> {
     );
   }
 
+  Future<void> _showMarkdownPreview() async {
+    final markdown = _contentController.text.trim();
+    if (markdown.isEmpty) {
+      _showError('输入正文后即可预览');
+      return;
+    }
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      constraints: const BoxConstraints(maxWidth: 900),
+      builder: (sheetContext) => SafeArea(
+        child: SizedBox(
+          height: MediaQuery.sizeOf(sheetContext).height * 0.76,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 8, 8),
+                child: Row(
+                  children: [
+                    Text(
+                      'Markdown 预览',
+                      style: Theme.of(sheetContext).textTheme.titleMedium,
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      key: const ValueKey('closeMarkdownPreviewButton'),
+                      onPressed: () => Navigator.of(sheetContext).pop(),
+                      icon: const Icon(Icons.close),
+                      tooltip: '关闭预览',
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: NoteMarkdownPreview(markdown: markdown),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _requestLeaveEditor() async {
     if (_voiceSessionActive) {
       final shouldDiscardVoice = await showDialog<bool>(
@@ -726,13 +793,23 @@ class _EditorPageState extends State<EditorPage> {
             PopupMenuButton<String>(
               tooltip: '更多操作',
               onSelected: (value) {
-                if (value == 'archive') {
+                if (value == 'preview') {
+                  _showMarkdownPreview();
+                } else if (value == 'archive') {
                   _archiveNote();
                 } else if (value == 'delete') {
                   _deleteNote();
                 }
               },
               itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'preview',
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.visibility_outlined),
+                    title: Text('Markdown 预览'),
+                  ),
+                ),
                 PopupMenuItem(
                   enabled: !_isNewNote,
                   value: 'archive',

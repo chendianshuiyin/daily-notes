@@ -539,3 +539,26 @@
 
 - Integrate the block editor UI, lightweight Markdown shortcuts and preview, and freely ordered multi-image blocks.
 - Implement opt-in AI tag, cleanup, related-note, question, and review features after the editor interaction is stable.
+
+## 2026-07-11 Markdown preview foundation
+
+### Completed
+
+- Added an app-owned Markdown codec for headings, paragraphs, bullet and numbered lists, quotes, dividers, and fenced code blocks.
+- Preserved inline `#tags` as paragraph text and reused existing text-block IDs while editing.
+- Added a read-only Markdown preview to the Editor action menu using `appflowy_editor` behind the app-owned content boundary.
+- Saved typed text blocks alongside the compatibility Markdown shadow and increased the per-note image limit from 4 to 12.
+- Kept the narrow-screen bottom toolbar unchanged to avoid adding another overflow-prone action.
+
+### Verification
+
+- `flutter test`: 38 tests passed, including Markdown codec round-trip and draft-preserving preview coverage.
+- `flutter analyze`: passed with no issues.
+- Android release APK built at 63,463,294 bytes and Web release compilation completed, including its Wasm dry run.
+- Android 36 emulator upgrade installation retained existing data and showed the `0/12` image counter.
+- Emulator visual inspection confirmed the preview sheet has finite bounds, internal scrolling, a reachable close action, and no narrow-screen overflow.
+
+### Remaining Work
+
+- Replace source-only body editing with the full block editing surface and formatting controls.
+- Insert image blocks at the caret, then add captions, reorder, replace, and mixed text/image persistence tests.

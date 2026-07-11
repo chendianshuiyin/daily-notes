@@ -176,7 +176,10 @@ class NoteDocument {
   }
 
   String toTextShadow() {
-    return blocks.where((block) => block.isText).map(_blockText).join('\n');
+    return blocks
+        .where((block) => block.type != NoteBlockType.image)
+        .map(_blockText)
+        .join('\n');
   }
 
   static String _blockText(NoteBlock block) {
@@ -189,8 +192,9 @@ class NoteDocument {
         '${List.filled(block.indent, '  ').join()}1. ${block.text}',
       NoteBlockType.quote => '> ${block.text}',
       NoteBlockType.code => '```\n${block.text}\n```',
+      NoteBlockType.divider => '---',
       NoteBlockType.paragraph => block.text,
-      NoteBlockType.image || NoteBlockType.divider => '',
+      NoteBlockType.image => '',
     };
   }
 }
