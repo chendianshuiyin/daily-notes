@@ -11,9 +11,10 @@ void main() {
 
 /// Daily Notes 应用主入口
 class DailyNotesApp extends StatefulWidget {
-  const DailyNotesApp({super.key, this.noteRepository});
+  const DailyNotesApp({super.key, this.noteRepository, this.aiProvider});
 
   final NoteRepository? noteRepository;
+  final AiProvider? aiProvider;
 
   @override
   State<DailyNotesApp> createState() => _DailyNotesAppState();
@@ -40,7 +41,15 @@ class _DailyNotesAppState extends State<DailyNotesApp> {
           create: (_) => AppSettingsProvider()..loadSettings(),
         ),
         ChangeNotifierProvider(create: (_) => WebDavProvider()..load()),
-        ChangeNotifierProvider(create: (_) => AiProvider()..load()),
+        ChangeNotifierProvider(
+          create: (_) {
+            final provider = widget.aiProvider ?? AiProvider();
+            if (widget.aiProvider == null) {
+              provider.load();
+            }
+            return provider;
+          },
+        ),
       ],
       child: Consumer<AppSettingsProvider>(
         builder: (context, settings, child) {

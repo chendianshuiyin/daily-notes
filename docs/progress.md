@@ -664,3 +664,19 @@
 ### Verification
 
 - Added transport tests for typed parsing, injection-like note text, authentication failures, malformed responses, and provider cancellation.
+
+## 2026-07-11 Confirmed remote AI tag flow
+
+### Completed
+
+- Split editor actions into always-available local tag suggestions and remotely configured AI tag suggestions.
+- Added an action-time scope dialog that exposes the exact bounded title, body, image captions, and existing-tag count before transmission.
+- Excluded attachment bytes, archived notes, WebDAV credentials, and hidden metadata; long drafts explicitly show that only the previewed prefix will be sent.
+- Added a non-dismissible progress dialog with request cancellation and retained the second confirmation sheet before any suggested tag changes the editor.
+- Kept the remote menu hidden while AI is unconfigured, preserving the local-only experience.
+
+### Verification
+
+- Added a widget test proving the remote client is not called before scope confirmation and that returned tags remain unapplied until the user confirms insertion.
+- `flutter test`: 59 tests passed; `flutter analyze`: passed with no issues.
+- Android release APK built successfully at 61.3 MB and the Web JavaScript release completed.

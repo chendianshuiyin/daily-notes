@@ -8,6 +8,8 @@ import 'package:daily_notes/data/models/models.dart';
 import 'package:daily_notes/data/services/services.dart';
 import 'package:daily_notes/domain/repositories/repositories.dart';
 import 'package:daily_notes/presentation/pages/editor/note_block_editor.dart';
+import 'package:daily_notes/presentation/providers/providers.dart';
+import 'package:dio/dio.dart';
 
 Future<void> pumpUntilFound(WidgetTester tester, Finder finder) async {
   for (var attempt = 0; attempt < 40; attempt++) {
@@ -170,6 +172,7 @@ void main() {
       const ValueKey('markdownPreviewMenuItem'),
     );
     expect(previewMenuItem, findsOneWidget);
+    expect(find.byKey(const ValueKey('remoteAiTagMenuItem')), findsNothing);
     await tester.tap(previewMenuItem);
     await tester.pumpAndSettle();
 
@@ -240,6 +243,59 @@ void main() {
     await tester.pumpAndSettle();
 
     final editor = tester.widget<NoteBlockEditor>(find.byType(NoteBlockEditor));
+    expect(editor.controller.markdown, contains('#开发/Flutter'));
+  });
+
+  testWidgets('Confirms scope before requesting and applying remote AI tags', (
+    WidgetTester tester,
+  ) async {
+    final store = _MemoryAiConfigStore();
+    final remoteClient = _RecordingAiRemoteClient();
+    final aiProvider = AiProvider(
+      configStore: store,
+      remoteClient: remoteClient,
+    );
+    await aiProvider.save(
+      AiConfig.validated(
+        endpoint: 'https://example.com/v1',
+        model: 'model-mini',
+        apiKey: 'secret',
+      ),
+    );
+    await tester.pumpWidget(
+      DailyNotesApp(noteRepository: testRepository, aiProvider: aiProvider),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('新建笔记'));
+    await tester.pumpAndSettle();
+    await enterNoteBody(tester, '准备发布 Flutter 编辑器');
+
+    await tester.tap(find.byTooltip('更多操作'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('remoteAiTagMenuItem')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('remoteAiTagMenuItem')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('remoteAiScopeDialog')), findsOneWidget);
+    expect(remoteClient.callCount, 0);
+    await tester.tap(find.byKey(const ValueKey('remoteAiScopeDetails')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('准备发布 Flutter 编辑器'), findsOneWidget);
+    expect(remoteClient.callCount, 0);
+    await tester.tap(find.byKey(const ValueKey('confirmRemoteAiTagsButton')));
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey('remoteAiProgressDialog')),
+      findsOneWidget,
+    );
+    await tester.pumpAndSettle();
+
+    expect(remoteClient.callCount, 1);
+    expect(find.text('#开发/Flutter'), findsWidgets);
+    final editor = tester.widget<NoteBlockEditor>(find.byType(NoteBlockEditor));
+    expect(editor.controller.markdown, isNot(contains('#开发/Flutter')));
+    await tester.tap(find.byKey(const ValueKey('applySmartTagsButton')));
+    await tester.pumpAndSettle();
     expect(editor.controller.markdown, contains('#开发/Flutter'));
   });
 
@@ -774,6 +830,36 @@ class _MemoryNoteRepository implements NoteRepository {
     for (final note in notes) {
       await upsertNote(note);
     }
+  }
+}
+
+class _MemoryAiConfigStore implements AiConfigStore {
+  AiConfig? value;
+
+  @override
+  Future<void> clear() async => value = null;
+
+  @override
+  Future<AiConfig?> load() async => value;
+
+  @override
+  Future<void> save(AiConfig config) async => value = config;
+}
+
+class _RecordingAiRemoteClient extends AiRemoteClient {
+  int callCount = 0;
+
+  @override
+  Future<List<AiTagSuggestion>> suggestTags(
+    AiConfig config,
+    AiNoteContext context, {
+    CancelToken? cancelToken,
+  }) async {
+    callCount++;
+    await Future<void>.delayed(const Duration(milliseconds: 80));
+    return const [
+      AiTagSuggestion(tag: '#开发/Flutter', reason: '正文提到了 Flutter 编辑器'),
+    ];
   }
 }
 

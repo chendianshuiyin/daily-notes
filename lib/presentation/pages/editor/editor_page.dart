@@ -823,7 +823,7 @@ class _EditorPageState extends State<EditorPage> {
     );
   }
 
-  Future<void> _showSmartTagSuggestions() async {
+  Future<void> _showLocalTagSuggestions() async {
     _blockController.captureInsertionSelection();
     final suggestions = _localAiOrganizer.suggestTags(
       title: _titleController.text,
@@ -835,6 +835,150 @@ class _EditorPageState extends State<EditorPage> {
       _showError('暂时没有合适的已有标签建议');
       return;
     }
+    await _showTagSuggestionSheet(
+      suggestions
+          .map((item) => _TagOption(tag: item.tag, reason: item.reason))
+          .toList(),
+      subtitle: '本次分析仅在设备上进行',
+    );
+  }
+
+  Future<void> _showRemoteTagSuggestions() async {
+    _blockController.captureInsertionSelection();
+    final ai = context.read<AiProvider>();
+    final config = ai.config;
+    if (config == null) {
+      _showError('请先在设置中配置 AI 服务');
+      return;
+    }
+    final draftTitle = _titleController.text.trim();
+    final draftContent = _blockController.markdown.trim();
+    if (draftTitle.isEmpty && draftContent.isEmpty) {
+      _showError('请先输入一些笔记内容');
+      return;
+    }
+    String bounded(String value, int limit) {
+      return value.length <= limit ? value : value.substring(0, limit);
+    }
+
+    final title = bounded(draftTitle, 500);
+    final content = bounded(draftContent, 12000);
+    final wasTruncated =
+        title.length != draftTitle.length ||
+        content.length != draftContent.length;
+    final captions = _blockController.blocks
+        .where((block) => block.type == NoteBlockType.image)
+        .map((block) => bounded(block.caption.trim(), 300))
+        .where((caption) => caption.isNotEmpty)
+        .toList();
+    final existingTags = Note.normalizeTags(
+      context.read<NoteProvider>().activeNotes.expand((note) => note.tags),
+    ).take(100).toList();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        key: const ValueKey('remoteAiScopeDialog'),
+        title: Text('发送给 ${config.model}？'),
+        content: SizedBox(
+          width: 520,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '将发送标题、正文、${captions.length} 条图片说明和 '
+                  '${existingTags.length} 个已有标签名。',
+                ),
+                if (wasTruncated) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    '草稿较长，仅发送下方预览中的前 ${title.length + content.length} 字。',
+                    style: TextStyle(
+                      color: Theme.of(dialogContext).colorScheme.tertiary,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 8),
+                const Text('不会发送图片、WebDAV 凭据、归档笔记或隐藏元数据。'),
+                const SizedBox(height: 8),
+                ExpansionTile(
+                  key: const ValueKey('remoteAiScopeDetails'),
+                  tilePadding: EdgeInsets.zero,
+                  title: Text('查看发送文本（${title.length + content.length} 字）'),
+                  children: [
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 240),
+                      child: SingleChildScrollView(
+                        child: SelectableText(
+                          [
+                            if (title.isNotEmpty) '标题：$title',
+                            if (content.isNotEmpty) '正文：$content',
+                            if (captions.isNotEmpty)
+                              '图片说明：${captions.join('；')}',
+                          ].join('\n\n'),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            key: const ValueKey('confirmRemoteAiTagsButton'),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('确认发送'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) {
+      return;
+    }
+    final result = await showDialog<_RemoteTagResult>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => _RemoteTagProgressDialog(
+        provider: ai,
+        noteContext: AiNoteContext(
+          title: title,
+          content: content,
+          existingTags: existingTags,
+          imageCaptions: captions,
+        ),
+      ),
+    );
+    if (!mounted || result == null) {
+      return;
+    }
+    if (result.error != null) {
+      _showError(result.error!.message);
+      return;
+    }
+    final suggestions = result.suggestions;
+    if (suggestions.isEmpty) {
+      _showError('AI 没有返回可用的标签建议');
+      return;
+    }
+    await _showTagSuggestionSheet(
+      suggestions
+          .map((item) => _TagOption(tag: item.tag, reason: item.reason))
+          .toList(),
+      subtitle: '${config.model} 的建议，插入前请确认',
+    );
+  }
+
+  Future<void> _showTagSuggestionSheet(
+    List<_TagOption> suggestions, {
+    required String subtitle,
+  }) async {
     final selected = suggestions.map((item) => item.tag).toSet();
     final tags = await showModalBottomSheet<List<String>>(
       context: context,
@@ -878,7 +1022,7 @@ class _EditorPageState extends State<EditorPage> {
                     ],
                   ),
                   Text(
-                    '本次分析仅在设备上进行',
+                    subtitle,
                     style: Theme.of(sheetContext).textTheme.bodySmall,
                   ),
                   const SizedBox(height: 8),
@@ -1031,6 +1175,7 @@ class _EditorPageState extends State<EditorPage> {
 
   @override
   Widget build(BuildContext context) {
+    final aiConfigured = context.watch<AiProvider>().isConfigured;
     return PopScope(
       canPop: _allowPop || !_isDirty,
       onPopInvokedWithResult: (didPop, result) {
@@ -1054,8 +1199,10 @@ class _EditorPageState extends State<EditorPage> {
                   _showMarkdownPreview();
                 } else if (value == 'format') {
                   _showFormattingTools();
-                } else if (value == 'smart-tags') {
-                  _showSmartTagSuggestions();
+                } else if (value == 'local-tags') {
+                  _showLocalTagSuggestions();
+                } else if (value == 'remote-tags') {
+                  _showRemoteTagSuggestions();
                 } else if (value == 'archive') {
                   _archiveNote();
                 } else if (value == 'delete') {
@@ -1083,13 +1230,23 @@ class _EditorPageState extends State<EditorPage> {
                 ),
                 const PopupMenuItem(
                   key: ValueKey('smartTagMenuItem'),
-                  value: 'smart-tags',
+                  value: 'local-tags',
                   child: ListTile(
                     contentPadding: EdgeInsets.zero,
-                    leading: Icon(Icons.auto_awesome_outlined),
-                    title: Text('智能标签'),
+                    leading: Icon(Icons.offline_bolt_outlined),
+                    title: Text('本地智能标签'),
                   ),
                 ),
+                if (aiConfigured)
+                  const PopupMenuItem(
+                    key: ValueKey('remoteAiTagMenuItem'),
+                    value: 'remote-tags',
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.auto_awesome_outlined),
+                      title: Text('AI 标签建议'),
+                    ),
+                  ),
                 PopupMenuItem(
                   enabled: !_isNewNote,
                   value: 'archive',
@@ -1405,6 +1562,96 @@ class _EditorPageState extends State<EditorPage> {
   String _editorDateLabel() {
     final date = _currentNote?.createdAt ?? DateTime.now();
     return '${date.year}年${date.month}月${date.day}日';
+  }
+}
+
+class _TagOption {
+  const _TagOption({required this.tag, required this.reason});
+
+  final String tag;
+  final String reason;
+}
+
+class _RemoteTagResult {
+  const _RemoteTagResult.success(this.suggestions) : error = null;
+  const _RemoteTagResult.failure(this.error) : suggestions = const [];
+
+  final List<AiTagSuggestion> suggestions;
+  final AiRemoteException? error;
+}
+
+class _RemoteTagProgressDialog extends StatefulWidget {
+  const _RemoteTagProgressDialog({
+    required this.provider,
+    required this.noteContext,
+  });
+
+  final AiProvider provider;
+  final AiNoteContext noteContext;
+
+  @override
+  State<_RemoteTagProgressDialog> createState() =>
+      _RemoteTagProgressDialogState();
+}
+
+class _RemoteTagProgressDialogState extends State<_RemoteTagProgressDialog> {
+  bool _isCancelling = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _run());
+  }
+
+  Future<void> _run() async {
+    try {
+      final suggestions = await widget.provider.suggestTags(widget.noteContext);
+      if (mounted) {
+        Navigator.of(context).pop(_RemoteTagResult.success(suggestions));
+      }
+    } on AiRemoteException catch (error) {
+      if (mounted) {
+        Navigator.of(context).pop(_RemoteTagResult.failure(error));
+      }
+    } catch (_) {
+      if (mounted) {
+        Navigator.of(context).pop(
+          const _RemoteTagResult.failure(
+            AiRemoteException(AiRemoteError.network, 'AI 请求失败，请重试'),
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      key: const ValueKey('remoteAiProgressDialog'),
+      title: const Text('正在生成标签建议'),
+      content: const Row(
+        children: [
+          SizedBox.square(
+            dimension: 22,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          SizedBox(width: 14),
+          Expanded(child: Text('仅处理刚才确认的文字范围')),
+        ],
+      ),
+      actions: [
+        TextButton(
+          key: const ValueKey('cancelRemoteAiButton'),
+          onPressed: _isCancelling
+              ? null
+              : () {
+                  setState(() => _isCancelling = true);
+                  widget.provider.cancel();
+                },
+          child: Text(_isCancelling ? '正在取消' : '取消请求'),
+        ),
+      ],
+    );
   }
 }
 
