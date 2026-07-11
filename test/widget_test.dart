@@ -62,7 +62,8 @@ void main() {
 
     expect(find.text('Daily Notes'), findsOneWidget);
     expect(find.text('记录热力图'), findsNothing);
-    expect(find.textContaining('最近 '), findsOneWidget);
+    expect(find.byKey(const ValueKey('quickCapture')), findsOneWidget);
+    expect(find.text('统计总览'), findsNothing);
   });
 
   testWidgets('Selects a day from the activity heatmap', (
@@ -82,6 +83,8 @@ void main() {
 
     await tester.pumpWidget(testApp);
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('homeSidebarButton')));
+    await tester.pumpAndSettle();
     final key = ValueKey(
       'activity-cell-${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}',
     );
@@ -89,8 +92,60 @@ void main() {
     expect(find.byKey(key), findsOneWidget);
     await tester.tap(find.byKey(key));
     await tester.pumpAndSettle();
-    expect(find.text('每日详情 · ${day.month}月${day.day}日'), findsOneWidget);
+    expect(find.text('${day.month}月${day.day}日 的笔记'), findsOneWidget);
     expect(find.text('热力图记录'), findsWidgets);
+  });
+
+  testWidgets('Saves and expands a home quick-capture draft', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(360, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(testApp);
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('quickCaptureField')),
+      '快速记录内容 #收集箱',
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('quickCaptureSaveButton')));
+    await tester.pumpAndSettle();
+    final quickField = tester.widget<TextField>(
+      find.byKey(const ValueKey('quickCaptureField')),
+    );
+    expect(quickField.controller!.text, isEmpty);
+    expect(find.textContaining('快速记录内容'), findsWidgets);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('quickCaptureField')),
+      '带到完整编辑器的草稿',
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('quickCaptureExpandButton')));
+    await tester.pumpAndSettle();
+    final editor = tester.widget<NoteBlockEditor>(find.byType(NoteBlockEditor));
+    expect(editor.controller.markdown, '带到完整编辑器的草稿');
+    await tester.tap(find.byIcon(Icons.arrow_back));
+    await tester.pumpAndSettle();
+    expect(find.text('放弃未保存的更改？'), findsOneWidget);
+    await tester.tap(find.text('放弃更改'));
+    await tester.pumpAndSettle();
+    final retainedQuickField = tester.widget<TextField>(
+      find.byKey(const ValueKey('quickCaptureField')),
+    );
+    expect(retainedQuickField.controller!.text, '带到完整编辑器的草稿');
+
+    await tester.tap(find.byKey(const ValueKey('quickCaptureExpandButton')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('saveNoteButton')));
+    await tester.pumpAndSettle();
+
+    final restoredQuickField = tester.widget<TextField>(
+      find.byKey(const ValueKey('quickCaptureField')),
+    );
+    expect(restoredQuickField.controller!.text, isEmpty);
+    expect(find.textContaining('带到完整编辑器'), findsWidgets);
   });
 
   testWidgets('Filters the main note stream from the left tag drawer', (

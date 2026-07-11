@@ -19,16 +19,83 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  final TextEditingController _quickController = TextEditingController();
   DateTime _selectedDate = _dateOnly(DateTime.now());
+  DateTime? _selectedDateFilter;
   String? _selectedTag;
+  bool _isQuickSaving = false;
 
   static const _untagged = '__untagged__';
+
+  @override
+  void dispose() {
+    _quickController.dispose();
+    super.dispose();
+  }
 
   bool _matchesSelectedTag(Note note) {
     return _selectedTag == null ||
         (_selectedTag == _untagged
             ? note.tags.isEmpty
             : Note.matchesTag(note.tags, _selectedTag!));
+  }
+
+  bool _matchesHomeFilter(Note note) {
+    final date = _selectedDateFilter;
+    return _matchesSelectedTag(note) &&
+        (date == null || DateUtil.isSameDay(note.createdAt, date));
+  }
+
+  Future<void> _saveQuickNote() async {
+    final content = _quickController.text.trim();
+    if (content.isEmpty || _isQuickSaving) {
+      return;
+    }
+    setState(() => _isQuickSaving = true);
+    try {
+      await context.read<NoteProvider>().saveNote(
+        title: '',
+        content: content,
+        tags: Note.extractTags(content),
+      );
+      _quickController.clear();
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('已记录')));
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('记录失败，草稿仍保留')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isQuickSaving = false);
+      }
+    }
+  }
+
+  Future<void> _openQuickInEditor() async {
+    final draft = _quickController.text;
+    final saved = await context.push<bool>(AppRouter.editor, extra: draft);
+    if (saved == true && mounted) {
+      _quickController.clear();
+      setState(() {});
+    }
+  }
+
+  void _insertQuickTag() {
+    final value = _quickController.value;
+    final selection = value.selection;
+    final offset = selection.isValid ? selection.start : value.text.length;
+    final end = selection.isValid ? selection.end : value.text.length;
+    final updated = value.text.replaceRange(offset, end, '#');
+    _quickController.value = TextEditingValue(
+      text: updated,
+      selection: TextSelection.collapsed(offset: offset + 1),
+    );
   }
 
   Future<void> _showAskNotes() async {
@@ -328,6 +395,9 @@ class _HomePageState extends State<HomePage> {
           }
           final tags = counts.keys.toList()..sort();
           return _HomeTagDrawer(
+            activityByDay: notes.activityByDay,
+            selectedDate: _selectedDateFilter ?? _selectedDate,
+            selectedDateFilter: _selectedDateFilter,
             tags: tags,
             counts: counts,
             totalCount: activeNotes.length,
@@ -336,8 +406,22 @@ class _HomePageState extends State<HomePage> {
                 .length,
             selectedTag: _selectedTag,
             onSelected: (tag) {
-              setState(() => _selectedTag = tag);
+              setState(() {
+                _selectedTag = tag;
+                _selectedDateFilter = null;
+              });
               Navigator.of(context).pop();
+            },
+            onDateSelected: (date) {
+              setState(() {
+                _selectedDate = _dateOnly(date);
+                _selectedDateFilter = _dateOnly(date);
+                _selectedTag = null;
+              });
+              Navigator.of(context).pop();
+            },
+            onClearDate: () {
+              setState(() => _selectedDateFilter = null);
             },
           );
         },
@@ -397,13 +481,8 @@ class _HomePageState extends State<HomePage> {
             );
           }
 
-          final todayNotes = noteProvider.todayNotes;
           final visibleNotes = noteProvider.activeNotes
-              .where(_matchesSelectedTag)
-              .toList();
-          final selectedNotes = noteProvider
-              .notesForDay(_selectedDate)
-              .where((note) => !note.isArchived && _matchesSelectedTag(note))
+              .where(_matchesHomeFilter)
               .toList();
 
           return Align(
@@ -415,44 +494,19 @@ class _HomePageState extends State<HomePage> {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(16, 20, 16, 96),
                   children: [
-                    const _DashboardHeader(),
-                    const SizedBox(height: 16),
-                    _SummaryRow(
-                      todayCount: todayNotes.length,
-                      totalCount: noteProvider.activeNotes.length,
-                      streakCount: noteProvider.currentStreak,
-                    ),
-                    const SizedBox(height: 16),
-                    NoteActivityHeatmap(
-                      activityByDay: noteProvider.activityByDay,
-                      selectedDate: _selectedDate,
-                      onDateSelected: (date) {
-                        setState(() => _selectedDate = _dateOnly(date));
-                      },
+                    _QuickCapture(
+                      controller: _quickController,
+                      isSaving: _isQuickSaving,
+                      onChanged: () => setState(() {}),
+                      onInsertTag: _insertQuickTag,
+                      onExpand: _openQuickInEditor,
+                      onSave: _saveQuickNote,
                     ),
                     const SizedBox(height: 24),
                     _SectionHeader(
-                      title: '每日详情 · ${_formatDay(_selectedDate)}',
-                      count: selectedNotes.length,
-                    ),
-                    const SizedBox(height: 10),
-                    if (selectedNotes.isEmpty)
-                      const _DayEmptyState()
-                    else
-                      ...selectedNotes.map(
-                        (note) => Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: _NoteCard(
-                            note: note,
-                            onTagSelected: (tag) {
-                              setState(() => _selectedTag = tag);
-                            },
-                          ),
-                        ),
-                      ),
-                    const SizedBox(height: 16),
-                    _SectionHeader(
-                      title: _selectedTag == _untagged
+                      title: _selectedDateFilter != null
+                          ? '${_formatDay(_selectedDateFilter!)} 的笔记'
+                          : _selectedTag == _untagged
                           ? '无标签笔记'
                           : _selectedTag ?? '全部笔记',
                       count: visibleNotes.length,
@@ -467,7 +521,10 @@ class _HomePageState extends State<HomePage> {
                           child: _NoteCard(
                             note: note,
                             onTagSelected: (tag) {
-                              setState(() => _selectedTag = tag);
+                              setState(() {
+                                _selectedTag = tag;
+                                _selectedDateFilter = null;
+                              });
                             },
                           ),
                         ),
@@ -589,142 +646,94 @@ class _AskNotesProgressDialogState extends State<_AskNotesProgressDialog> {
   }
 }
 
-class _DashboardHeader extends StatelessWidget {
-  const _DashboardHeader();
-
-  @override
-  Widget build(BuildContext context) {
-    final now = DateTime.now();
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('统计总览', style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 3),
-              Text(
-                '${now.year}年${now.month}月${now.day}日',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
-          ),
-        ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: Theme.of(
-              context,
-            ).colorScheme.secondary.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.shield_outlined,
-                size: 15,
-                color: Theme.of(context).colorScheme.secondary,
-              ),
-              const SizedBox(width: 5),
-              const Text('本地保存'),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SummaryRow extends StatelessWidget {
-  const _SummaryRow({
-    required this.todayCount,
-    required this.totalCount,
-    required this.streakCount,
+class _QuickCapture extends StatelessWidget {
+  const _QuickCapture({
+    required this.controller,
+    required this.isSaving,
+    required this.onChanged,
+    required this.onInsertTag,
+    required this.onExpand,
+    required this.onSave,
   });
 
-  final int todayCount;
-  final int totalCount;
-  final int streakCount;
+  final TextEditingController controller;
+  final bool isSaving;
+  final VoidCallback onChanged;
+  final VoidCallback onInsertTag;
+  final VoidCallback onExpand;
+  final VoidCallback onSave;
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final cardWidth = (constraints.maxWidth - 16) / 3;
-        return Row(
-          children: [
-            SizedBox(
-              width: cardWidth,
-              child: _SummaryCard(
-                icon: Icons.notes_outlined,
-                label: '总记录',
-                value: totalCount.toString(),
-              ),
+    final hasText = controller.text.trim().isNotEmpty;
+    return Container(
+      key: const ValueKey('quickCapture'),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            key: const ValueKey('quickCaptureField'),
+            controller: controller,
+            onChanged: (_) => onChanged(),
+            minLines: 3,
+            maxLines: 8,
+            maxLength: 4000,
+            decoration: const InputDecoration(
+              hintText: '现在在想什么？',
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              filled: false,
+              counterText: '',
+              contentPadding: EdgeInsets.fromLTRB(16, 14, 16, 6),
             ),
-            const SizedBox(width: 8),
-            SizedBox(
-              width: cardWidth,
-              child: _SummaryCard(
-                icon: Icons.today_outlined,
-                label: '今日',
-                value: todayCount.toString(),
-              ),
-            ),
-            const SizedBox(width: 8),
-            SizedBox(
-              width: cardWidth,
-              child: _SummaryCard(
-                icon: Icons.local_fire_department_outlined,
-                label: '连续天数',
-                value: streakCount.toString(),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: SizedBox(
-        height: 112,
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(
-                icon,
-                size: 20,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              const Spacer(),
-              Text(value, style: Theme.of(context).textTheme.headlineSmall),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
           ),
-        ),
+          const Divider(height: 1),
+          SizedBox(
+            height: 52,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              child: Row(
+                children: [
+                  IconButton(
+                    key: const ValueKey('quickCaptureTagButton'),
+                    onPressed: onInsertTag,
+                    icon: const Icon(Icons.tag_outlined),
+                    tooltip: '插入 #标签',
+                  ),
+                  IconButton(
+                    key: const ValueKey('quickCaptureExpandButton'),
+                    onPressed: onExpand,
+                    icon: const Icon(Icons.open_in_full),
+                    tooltip: '打开完整编辑器',
+                  ),
+                  const Spacer(),
+                  Text(
+                    '${controller.text.trim().length} 字',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(width: 10),
+                  FilledButton.icon(
+                    key: const ValueKey('quickCaptureSaveButton'),
+                    onPressed: hasText && !isSaving ? onSave : null,
+                    icon: isSaving
+                        ? const SizedBox.square(
+                            dimension: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.send_outlined, size: 18),
+                    label: const Text('记录'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -847,20 +856,30 @@ class _InlineTag extends StatelessWidget {
 
 class _HomeTagDrawer extends StatelessWidget {
   const _HomeTagDrawer({
+    required this.activityByDay,
+    required this.selectedDate,
+    required this.selectedDateFilter,
     required this.tags,
     required this.counts,
     required this.totalCount,
     required this.untaggedCount,
     required this.selectedTag,
     required this.onSelected,
+    required this.onDateSelected,
+    required this.onClearDate,
   });
 
+  final Map<DateTime, int> activityByDay;
+  final DateTime selectedDate;
+  final DateTime? selectedDateFilter;
   final List<String> tags;
   final Map<String, int> counts;
   final int totalCount;
   final int untaggedCount;
   final String? selectedTag;
   final ValueChanged<String?> onSelected;
+  final ValueChanged<DateTime> onDateSelected;
+  final VoidCallback onClearDate;
 
   @override
   Widget build(BuildContext context) {
@@ -894,6 +913,26 @@ class _HomeTagDrawer extends StatelessWidget {
                 ],
               ),
             ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+              child: NoteActivityHeatmap(
+                activityByDay: activityByDay,
+                selectedDate: selectedDate,
+                onDateSelected: onDateSelected,
+              ),
+            ),
+            if (selectedDateFilter case final date?)
+              ListTile(
+                key: const ValueKey('homeDateFilter'),
+                dense: true,
+                leading: const Icon(Icons.calendar_today_outlined, size: 18),
+                title: Text('${date.month}月${date.day}日的笔记'),
+                trailing: IconButton(
+                  onPressed: onClearDate,
+                  icon: const Icon(Icons.close),
+                  tooltip: '清除日期筛选',
+                ),
+              ),
             const Divider(),
             Expanded(
               child: ListView(
@@ -903,7 +942,7 @@ class _HomeTagDrawer extends StatelessWidget {
                     key: const ValueKey('homeTag-all'),
                     label: '全部笔记',
                     count: totalCount,
-                    selected: selectedTag == null,
+                    selected: selectedTag == null && selectedDateFilter == null,
                     icon: Icons.view_stream_outlined,
                     onTap: () => onSelected(null),
                   ),
@@ -989,30 +1028,6 @@ class _DrawerTagTile extends StatelessWidget {
   }
 }
 
-class _DayEmptyState extends StatelessWidget {
-  const _DayEmptyState();
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 28),
-        child: Column(
-          children: [
-            Icon(
-              Icons.note_alt_outlined,
-              size: 42,
-              color: Theme.of(context).colorScheme.outline,
-            ),
-            const SizedBox(height: 10),
-            const Text('这一天还没有记录'),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _InlineEmptyState extends StatelessWidget {
   const _InlineEmptyState();
 
@@ -1028,7 +1043,7 @@ class _InlineEmptyState extends StatelessWidget {
               color: Theme.of(context).colorScheme.primary,
             ),
             const SizedBox(width: 10),
-            const Expanded(child: Text('还没有笔记，点击右下角开始记录。')),
+            const Expanded(child: Text('还没有笔记，在上方写下第一个想法。')),
           ],
         ),
       ),

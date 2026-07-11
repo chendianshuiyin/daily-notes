@@ -22,11 +22,13 @@ class EditorPage extends StatefulWidget {
   const EditorPage({
     super.key,
     this.noteId,
+    this.initialContent,
     @visibleForTesting this.initialVoiceTranscript,
   });
 
   /// 要编辑的笔记 ID，如果为 null 则创建新笔记
   final String? noteId;
+  final String? initialContent;
 
   @visibleForTesting
   final String? initialVoiceTranscript;
@@ -87,13 +89,15 @@ class _EditorPageState extends State<EditorPage> {
   @override
   void initState() {
     super.initState();
+    final initialContent = widget.initialContent?.trim() ?? '';
     _replaceBlockController(
       NoteBlockEditorController(
-        blocks: _markdownCodec.decode('').blocks,
+        blocks: _markdownCodec.decode(initialContent).blocks,
         images: const [],
       ),
       disposePrevious: false,
     );
+    _isDirty = initialContent.isNotEmpty;
     final initialVoiceTranscript = widget.initialVoiceTranscript?.trim();
     if (initialVoiceTranscript != null && initialVoiceTranscript.isNotEmpty) {
       _voiceTranscript = initialVoiceTranscript;
@@ -240,7 +244,7 @@ class _EditorPageState extends State<EditorPage> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('笔记已保存')));
-      _popEditor();
+      _popEditor(saved: true);
     } catch (error, stackTrace) {
       debugPrint('Failed to save note: $error\n$stackTrace');
       if (!mounted) {
@@ -1374,7 +1378,7 @@ class _EditorPageState extends State<EditorPage> {
     }
   }
 
-  void _popEditor() {
+  void _popEditor({bool saved = false}) {
     if (!mounted) {
       return;
     }
@@ -1385,7 +1389,7 @@ class _EditorPageState extends State<EditorPage> {
         return;
       }
       if (context.canPop()) {
-        context.pop();
+        context.pop(saved);
       } else {
         context.go(AppRouter.home);
       }

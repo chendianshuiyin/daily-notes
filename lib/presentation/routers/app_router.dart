@@ -36,7 +36,13 @@ class AppRouter {
           pageBuilder: (context, state) {
             // 获取传递的笔记 ID 参数
             final noteId = state.uri.queryParameters['noteId'];
-            return MaterialPage(child: EditorPage(noteId: noteId));
+            final initialContent = state.extra as String?;
+            return MaterialPage(
+              child: EditorPage(
+                noteId: noteId,
+                initialContent: noteId == null ? initialContent : null,
+              ),
+            );
           },
         ),
         // 全部笔记页面

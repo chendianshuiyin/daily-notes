@@ -696,6 +696,23 @@
 - Added transport coverage for question/source data boundaries and fabricated citations plus an end-to-end 360x800 widget flow proving no request occurs before confirmation and validated sources open correctly.
 - `flutter test`: 66 tests passed; `flutter analyze`: passed with no issues.
 - Android release APK built successfully at 61.6 MB and the Web JavaScript release completed.
+
+## 2026-07-11 Capture-first home stream
+
+### Completed
+
+- Replaced the statistics-heavy first viewport with a title-free quick-capture composer and the complete filtered note stream.
+- Added direct save, inline `#` insertion, live character count, and draft expansion into the full mixed-block editor.
+- Passed expanded drafts through router state rather than URLs; abandoning the editor retains the home draft, while a successful save returns an explicit result and clears it.
+- Moved the activity heatmap into the left drawer alongside hierarchical tags, matching its navigation role; selecting an active date now filters the main stream and `All notes` clears the date filter.
+- Removed redundant home summary cards and duplicate daily-detail notes while retaining advanced search/archive behavior in the all-notes screen.
+
+### Verification
+
+- Added 360x800 widget coverage for direct capture, tag persistence, editor handoff, abandoned-draft retention, successful-save clearing, and drawer date filtering.
+- `flutter test`: 67 tests passed; `flutter analyze`: passed with no issues.
+- Android release APK built successfully at 61.6 MB and the Web JavaScript release completed.
+- Android 36 emulator visually confirmed the capture-first home viewport and a single-screen drawer containing the heatmap, all/untagged filters, and nested tags without overflow.
 - Android 36 emulator upgrade installation visually confirmed the fixed Save action and overflow-free scrollable tool strip on the narrow editor layout.
 
 ## 2026-07-11 Explainable related notes
