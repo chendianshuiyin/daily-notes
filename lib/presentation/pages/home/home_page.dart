@@ -98,6 +98,48 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  List<Note> _notesForAiScope(NoteProvider noteProvider, _AskNotesScope scope) {
+    final notes = switch (scope) {
+      _AskNotesScope.filtered =>
+        noteProvider.activeNotes.where(_matchesSelectedTag).toList(),
+      _AskNotesScope.selectedDay =>
+        noteProvider
+            .notesForDay(_selectedDate)
+            .where((note) => !note.isArchived)
+            .toList(),
+      _AskNotesScope.all => noteProvider.activeNotes,
+    };
+    return notes
+        .where(
+          (note) =>
+              note.title.trim().isNotEmpty || note.content.trim().isNotEmpty,
+        )
+        .take(30)
+        .toList();
+  }
+
+  String _aiScopeLabel(_AskNotesScope scope) {
+    return switch (scope) {
+      _AskNotesScope.filtered =>
+        _selectedTag == _untagged ? '当前筛选：无标签' : '当前筛选：${_selectedTag ?? '全部'}',
+      _AskNotesScope.selectedDay => '日期：${_formatDay(_selectedDate)}',
+      _AskNotesScope.all => '全部活动笔记',
+    };
+  }
+
+  List<AiSourceNote> _toAiSources(Iterable<Note> notes) {
+    return [
+      for (final note in notes)
+        AiSourceNote(
+          id: note.id,
+          date: note.createdAt,
+          title: note.title,
+          content: note.content,
+          tags: note.tags,
+        ),
+    ];
+  }
+
   Future<void> _showAskNotes() async {
     final ai = context.read<AiProvider>();
     final noteProvider = context.read<NoteProvider>();
@@ -111,44 +153,13 @@ class _HomePageState extends State<HomePage> {
         : _AskNotesScope.filtered;
     String? errorMessage;
 
-    List<Note> notesForScope(_AskNotesScope value) {
-      final notes = switch (value) {
-        _AskNotesScope.filtered =>
-          noteProvider.activeNotes.where(_matchesSelectedTag).toList(),
-        _AskNotesScope.selectedDay =>
-          noteProvider
-              .notesForDay(_selectedDate)
-              .where((note) => !note.isArchived)
-              .toList(),
-        _AskNotesScope.all => noteProvider.activeNotes,
-      };
-      return notes
-          .where(
-            (note) =>
-                note.title.trim().isNotEmpty || note.content.trim().isNotEmpty,
-          )
-          .take(30)
-          .toList();
-    }
-
-    String scopeLabel(_AskNotesScope value) {
-      return switch (value) {
-        _AskNotesScope.filtered =>
-          _selectedTag == _untagged
-              ? '当前筛选：无标签'
-              : '当前筛选：${_selectedTag ?? '全部'}',
-        _AskNotesScope.selectedDay => '日期：${_formatDay(_selectedDate)}',
-        _AskNotesScope.all => '全部活动笔记',
-      };
-    }
-
     _AskNotesRequest? request;
     try {
       request = await showDialog<_AskNotesRequest>(
         context: context,
         builder: (dialogContext) => StatefulBuilder(
           builder: (dialogContext, setDialogState) {
-            final scopedNotes = notesForScope(scope);
+            final scopedNotes = _notesForAiScope(noteProvider, scope);
             return AlertDialog(
               key: const ValueKey('askNotesScopeDialog'),
               title: const Text('问我的笔记'),
@@ -180,11 +191,15 @@ class _HomePageState extends State<HomePage> {
                           if (_selectedTag != null)
                             DropdownMenuItem(
                               value: _AskNotesScope.filtered,
-                              child: Text(scopeLabel(_AskNotesScope.filtered)),
+                              child: Text(
+                                _aiScopeLabel(_AskNotesScope.filtered),
+                              ),
                             ),
                           DropdownMenuItem(
                             value: _AskNotesScope.selectedDay,
-                            child: Text(scopeLabel(_AskNotesScope.selectedDay)),
+                            child: Text(
+                              _aiScopeLabel(_AskNotesScope.selectedDay),
+                            ),
                           ),
                           const DropdownMenuItem(
                             value: _AskNotesScope.all,
@@ -251,16 +266,7 @@ class _HomePageState extends State<HomePage> {
                     Navigator.of(dialogContext).pop(
                       _AskNotesRequest(
                         question: question,
-                        sources: [
-                          for (final note in scopedNotes)
-                            AiSourceNote(
-                              id: note.id,
-                              date: note.createdAt,
-                              title: note.title,
-                              content: note.content,
-                              tags: note.tags,
-                            ),
-                        ],
+                        sources: _toAiSources(scopedNotes),
                       ),
                     );
                   },
@@ -380,6 +386,332 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _showReviewInsight() async {
+    final ai = context.read<AiProvider>();
+    final noteProvider = context.read<NoteProvider>();
+    if (ai.config == null) {
+      return;
+    }
+    var scope = _selectedDateFilter != null
+        ? _AskNotesScope.selectedDay
+        : _selectedTag != null
+        ? _AskNotesScope.filtered
+        : _AskNotesScope.all;
+    String? errorMessage;
+    final sources = await showDialog<List<AiSourceNote>>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) {
+          final scopedNotes = _notesForAiScope(noteProvider, scope);
+          return AlertDialog(
+            key: const ValueKey('reviewInsightScopeDialog'),
+            title: const Text('生成回顾洞察'),
+            content: SizedBox(
+              width: 540,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    DropdownButtonFormField<_AskNotesScope>(
+                      key: const ValueKey('reviewInsightScopeField'),
+                      initialValue: scope,
+                      decoration: const InputDecoration(labelText: '来源范围'),
+                      items: [
+                        if (_selectedTag != null)
+                          DropdownMenuItem(
+                            value: _AskNotesScope.filtered,
+                            child: Text(_aiScopeLabel(_AskNotesScope.filtered)),
+                          ),
+                        DropdownMenuItem(
+                          value: _AskNotesScope.selectedDay,
+                          child: Text(
+                            _aiScopeLabel(_AskNotesScope.selectedDay),
+                          ),
+                        ),
+                        const DropdownMenuItem(
+                          value: _AskNotesScope.all,
+                          child: Text('全部活动笔记'),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) {
+                          setDialogState(() {
+                            scope = value;
+                            errorMessage = null;
+                          });
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    ExpansionTile(
+                      key: const ValueKey('reviewInsightSourceDetails'),
+                      tilePadding: EdgeInsets.zero,
+                      title: Text('将发送 ${scopedNotes.length} 条笔记'),
+                      subtitle: const Text('每条仅发送标题、日期、标签和前 2000 字'),
+                      children: [
+                        for (final note in scopedNotes)
+                          ListTile(
+                            dense: true,
+                            title: Text(note.displayTitle),
+                            subtitle: Text(_formatSourceDate(note.createdAt)),
+                          ),
+                      ],
+                    ),
+                    const Text('不会发送图片、归档笔记、WebDAV 凭据或隐藏元数据。'),
+                    if (errorMessage != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        errorMessage!,
+                        style: TextStyle(
+                          color: Theme.of(dialogContext).colorScheme.error,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('取消'),
+              ),
+              FilledButton(
+                key: const ValueKey('confirmReviewInsightButton'),
+                onPressed: () {
+                  if (scopedNotes.isEmpty) {
+                    setDialogState(() => errorMessage = '当前范围没有可发送的笔记');
+                    return;
+                  }
+                  Navigator.of(dialogContext).pop(_toAiSources(scopedNotes));
+                },
+                child: const Text('确认发送'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    if (sources == null || !mounted) {
+      return;
+    }
+    final result = await showDialog<_ReviewInsightResult>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) =>
+          _ReviewInsightProgressDialog(provider: ai, sources: sources),
+    );
+    if (!mounted || result == null) {
+      return;
+    }
+    if (result.error != null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(result.error!.message)));
+      return;
+    }
+    await _showReviewInsightResult(result.insight!, sources);
+  }
+
+  Future<void> _showReviewInsightResult(
+    AiReviewInsight insight,
+    List<AiSourceNote> sources,
+  ) async {
+    final sourceById = {for (final source in sources) source.id: source};
+    final outcome = await showModalBottomSheet<_ReviewInsightOutcome>(
+      context: context,
+      constraints: const BoxConstraints(maxWidth: 720),
+      isScrollControlled: true,
+      builder: (sheetContext) => SafeArea(
+        child: SizedBox(
+          key: const ValueKey('reviewInsightSheet'),
+          height: MediaQuery.sizeOf(sheetContext).height * 0.78,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+                child: Row(
+                  children: [
+                    const Icon(Icons.insights_outlined),
+                    const SizedBox(width: 8),
+                    Text(
+                      '回顾洞察',
+                      style: Theme.of(sheetContext).textTheme.titleMedium,
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      onPressed: () => Navigator.of(sheetContext).pop(),
+                      icon: const Icon(Icons.close),
+                      tooltip: '关闭洞察',
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+                  children: [
+                    SelectableText(
+                      insight.summary,
+                      key: const ValueKey('reviewInsightSummary'),
+                      style: Theme.of(sheetContext).textTheme.bodyLarge,
+                    ),
+                    _ReviewInsightSection(title: '反复主题', items: insight.themes),
+                    _ReviewInsightSection(
+                      title: '观点变化',
+                      items: insight.viewpointChanges,
+                    ),
+                    _ReviewInsightSection(
+                      title: '未解决问题',
+                      items: insight.openQuestions,
+                    ),
+                    _ReviewInsightSection(
+                      title: '可能的矛盾',
+                      items: insight.contradictions,
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      '来源',
+                      style: Theme.of(sheetContext).textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: 4),
+                    for (final sourceId in insight.sourceNoteIds)
+                      if (sourceById[sourceId] case final source?)
+                        ListTile(
+                          key: ValueKey('reviewInsightSource-$sourceId'),
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(_sourceTitle(source)),
+                          subtitle: Text(_formatSourceDate(source.date)),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () => Navigator.of(
+                            sheetContext,
+                          ).pop(_ReviewInsightOutcome.source(sourceId)),
+                        ),
+                    const Divider(),
+                    Text(
+                      '${insight.model} · ${_formatGeneratedAt(insight.generatedAt)}',
+                      style: Theme.of(sheetContext).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: FilledButton.icon(
+                  key: const ValueKey('saveReviewInsightButton'),
+                  onPressed: () => Navigator.of(
+                    sheetContext,
+                  ).pop(const _ReviewInsightOutcome.save()),
+                  icon: const Icon(Icons.note_add_outlined),
+                  label: const Text('保存为笔记'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (!mounted || outcome == null) {
+      return;
+    }
+    if (outcome.sourceId case final sourceId?) {
+      context.push(
+        '${AppRouter.editor}?noteId=${Uri.encodeComponent(sourceId)}',
+      );
+      return;
+    }
+    if (outcome.save) {
+      await _confirmAndSaveReviewInsight(insight, sourceById);
+    }
+  }
+
+  Future<void> _confirmAndSaveReviewInsight(
+    AiReviewInsight insight,
+    Map<String, AiSourceNote> sourceById,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        key: const ValueKey('saveReviewInsightConfirmDialog'),
+        title: const Text('保存回顾洞察？'),
+        content: const Text('将创建一条可继续编辑、归档或删除的普通笔记。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            key: const ValueKey('confirmSaveReviewInsightButton'),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('确认保存'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) {
+      return;
+    }
+    try {
+      final content = _reviewInsightMarkdown(insight, sourceById);
+      await context.read<NoteProvider>().saveNote(
+        title: '回顾洞察 ${_formatDay(insight.generatedAt)}',
+        content: content,
+        tags: Note.extractTags(content),
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('回顾洞察已保存')));
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('保存失败，请重试')));
+      }
+    }
+  }
+
+  String _reviewInsightMarkdown(
+    AiReviewInsight insight,
+    Map<String, AiSourceNote> sourceById,
+  ) {
+    String section(String title, List<String> items) {
+      if (items.isEmpty) return '';
+      return '## $title\n${items.map((item) => '- $item').join('\n')}';
+    }
+
+    final sourceLines = [
+      for (final id in insight.sourceNoteIds)
+        if (sourceById[id] case final source?)
+          '- ${_sourceTitle(source)} (${_formatSourceDate(source.date)})',
+    ];
+    return [
+      insight.summary,
+      section('反复主题', insight.themes),
+      section('观点变化', insight.viewpointChanges),
+      section('未解决问题', insight.openQuestions),
+      section('可能的矛盾', insight.contradictions),
+      if (sourceLines.isNotEmpty) '## 来源\n${sourceLines.join('\n')}',
+      '模型：${insight.model}\n生成时间：${_formatGeneratedAt(insight.generatedAt)}',
+      '#回顾/AI洞察',
+    ].where((part) => part.isNotEmpty).join('\n\n');
+  }
+
+  static String _sourceTitle(AiSourceNote source) {
+    return source.title.trim().isEmpty ? '未命名笔记' : source.title.trim();
+  }
+
+  static String _formatSourceDate(DateTime value) {
+    return '${value.year}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
+  }
+
+  static String _formatGeneratedAt(DateTime value) {
+    return '${_formatSourceDate(value)} ${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final aiConfigured = context.watch<AiProvider>().isConfigured;
@@ -405,6 +737,15 @@ class _HomePageState extends State<HomePage> {
                 .where((note) => note.tags.isEmpty)
                 .length,
             selectedTag: _selectedTag,
+            showReviewInsight: aiConfigured,
+            onReviewInsight: () {
+              Navigator.of(context).pop();
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  _showReviewInsight();
+                }
+              });
+            },
             onSelected: (tag) {
               setState(() {
                 _selectedTag = tag;
@@ -646,6 +987,142 @@ class _AskNotesProgressDialogState extends State<_AskNotesProgressDialog> {
   }
 }
 
+class _ReviewInsightResult {
+  const _ReviewInsightResult.success(this.insight) : error = null;
+  const _ReviewInsightResult.failure(this.error) : insight = null;
+
+  final AiReviewInsight? insight;
+  final AiRemoteException? error;
+}
+
+class _ReviewInsightProgressDialog extends StatefulWidget {
+  const _ReviewInsightProgressDialog({
+    required this.provider,
+    required this.sources,
+  });
+
+  final AiProvider provider;
+  final List<AiSourceNote> sources;
+
+  @override
+  State<_ReviewInsightProgressDialog> createState() =>
+      _ReviewInsightProgressDialogState();
+}
+
+class _ReviewInsightProgressDialogState
+    extends State<_ReviewInsightProgressDialog> {
+  bool _isCancelling = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _run());
+  }
+
+  Future<void> _run() async {
+    try {
+      final insight = await widget.provider.createReviewInsight(widget.sources);
+      if (mounted) {
+        Navigator.of(context).pop(_ReviewInsightResult.success(insight));
+      }
+    } on AiRemoteException catch (error) {
+      if (mounted) {
+        Navigator.of(context).pop(_ReviewInsightResult.failure(error));
+      }
+    } catch (_) {
+      if (mounted) {
+        Navigator.of(context).pop(
+          const _ReviewInsightResult.failure(
+            AiRemoteException(AiRemoteError.network, '回顾洞察生成失败，请重试'),
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      key: const ValueKey('reviewInsightProgressDialog'),
+      title: const Text('正在回顾笔记'),
+      content: const Row(
+        children: [
+          SizedBox.square(
+            dimension: 22,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          SizedBox(width: 14),
+          Expanded(child: Text('洞察只基于刚才确认的来源')),
+        ],
+      ),
+      actions: [
+        TextButton(
+          key: const ValueKey('cancelReviewInsightButton'),
+          onPressed: _isCancelling
+              ? null
+              : () {
+                  setState(() => _isCancelling = true);
+                  widget.provider.cancel();
+                },
+          child: Text(_isCancelling ? '正在取消' : '取消请求'),
+        ),
+      ],
+    );
+  }
+}
+
+class _ReviewInsightOutcome {
+  const _ReviewInsightOutcome.source(this.sourceId) : save = false;
+  const _ReviewInsightOutcome.save() : sourceId = null, save = true;
+
+  final String? sourceId;
+  final bool save;
+}
+
+class _ReviewInsightSection extends StatelessWidget {
+  const _ReviewInsightSection({required this.title, required this.items});
+
+  final String title;
+  final List<String> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(title, style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 8),
+          if (items.isEmpty)
+            Text(
+              '未发现',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            )
+          else
+            for (final item in items)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.only(top: 7),
+                      child: Icon(Icons.circle, size: 5),
+                    ),
+                    const SizedBox(width: 9),
+                    Expanded(child: SelectableText(item)),
+                  ],
+                ),
+              ),
+        ],
+      ),
+    );
+  }
+}
+
 class _QuickCapture extends StatelessWidget {
   const _QuickCapture({
     required this.controller,
@@ -864,6 +1341,8 @@ class _HomeTagDrawer extends StatelessWidget {
     required this.totalCount,
     required this.untaggedCount,
     required this.selectedTag,
+    required this.showReviewInsight,
+    required this.onReviewInsight,
     required this.onSelected,
     required this.onDateSelected,
     required this.onClearDate,
@@ -877,6 +1356,8 @@ class _HomeTagDrawer extends StatelessWidget {
   final int totalCount;
   final int untaggedCount;
   final String? selectedTag;
+  final bool showReviewInsight;
+  final VoidCallback onReviewInsight;
   final ValueChanged<String?> onSelected;
   final ValueChanged<DateTime> onDateSelected;
   final VoidCallback onClearDate;
@@ -938,6 +1419,20 @@ class _HomeTagDrawer extends StatelessWidget {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(8, 8, 8, 24),
                 children: [
+                  if (showReviewInsight)
+                    ListTile(
+                      key: const ValueKey('reviewInsightDrawerItem'),
+                      dense: true,
+                      minTileHeight: 40,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                      ),
+                      leading: const Icon(Icons.insights_outlined, size: 18),
+                      title: const Text('回顾洞察'),
+                      trailing: const Icon(Icons.chevron_right, size: 18),
+                      onTap: onReviewInsight,
+                    ),
+                  if (showReviewInsight) const Divider(),
                   _DrawerTagTile(
                     key: const ValueKey('homeTag-all'),
                     label: '全部笔记',

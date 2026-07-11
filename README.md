@@ -35,6 +35,7 @@ Android 包名为 `com.chendianshuiyin.dailynotes`。安装 APK 时按系统提�
 - GitHub 风格写作热力图，按宽度显示最近 16、28 或 52 周，并查看指定日期记录。
 - Hive CE 本地持久化、JSON 复制备份和剪贴板合并恢复。
 - 可选 WebDAV 连接测试、双向同步、覆盖上传和下载合并。
+- 可选 OpenAI-compatible 服务支持标签建议、语音整理、笔记问答和回顾洞察；每次远端发送均先展示并确认范围。
 
 ## WebDAV 同步
 

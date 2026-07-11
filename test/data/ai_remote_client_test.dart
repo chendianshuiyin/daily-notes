@@ -210,6 +210,95 @@ void main() {
       ),
     );
   });
+
+  test('parses structured review insight with validated source IDs', () async {
+    final transport = _FakeAiTransport(
+      response: AiTransportResponse(
+        statusCode: 200,
+        data: {
+          'choices': [
+            {
+              'message': {
+                'content': jsonEncode({
+                  'summary': '近期持续关注发布质量。',
+                  'themes': ['回归测试'],
+                  'viewpoint_changes': ['从快速发布转向稳定优先'],
+                  'open_questions': ['自动化覆盖是否足够？'],
+                  'contradictions': ['速度与稳定性的取舍尚未统一'],
+                  'source_note_ids': ['review-1'],
+                }),
+              },
+            },
+          ],
+        },
+      ),
+    );
+    final insight = await AiRemoteClient(transport: transport)
+        .createReviewInsight(
+          config,
+          sources: [
+            AiSourceNote(
+              id: 'review-1',
+              date: DateTime.utc(2026, 7, 11),
+              title: '发布记录',
+              content: '先完成回归测试。',
+              tags: const ['#开发'],
+            ),
+          ],
+        );
+
+    expect(insight.themes, ['回归测试']);
+    expect(insight.sourceNoteIds, ['review-1']);
+    expect(insight.model, 'model-mini');
+  });
+
+  test('rejects review insights that cite notes outside the sent scope', () {
+    final client = AiRemoteClient(
+      transport: _FakeAiTransport(
+        response: AiTransportResponse(
+          statusCode: 200,
+          data: {
+            'choices': [
+              {
+                'message': {
+                  'content': jsonEncode({
+                    'summary': '无效洞察',
+                    'themes': <String>[],
+                    'viewpoint_changes': <String>[],
+                    'open_questions': <String>[],
+                    'contradictions': <String>[],
+                    'source_note_ids': ['fabricated-id'],
+                  }),
+                },
+              },
+            ],
+          },
+        ),
+      ),
+    );
+
+    expectLater(
+      client.createReviewInsight(
+        config,
+        sources: [
+          AiSourceNote(
+            id: 'sent-id',
+            date: DateTime.utc(2026, 7, 11),
+            title: '真实来源',
+            content: '真实内容',
+            tags: const [],
+          ),
+        ],
+      ),
+      throwsA(
+        isA<AiRemoteException>().having(
+          (error) => error.code,
+          'code',
+          AiRemoteError.malformed,
+        ),
+      ),
+    );
+  });
 }
 
 class _FakeAiTransport implements AiTransport {

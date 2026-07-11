@@ -746,3 +746,19 @@
 - The voice review flow passes at a fixed 360x800 viewport; this also exposed and fixed a 66-pixel bottom-toolbar overflow by making secondary tools horizontally scrollable while keeping Save fixed.
 - `flutter test`: 64 tests passed; `flutter analyze`: passed with no issues.
 - Android release APK built successfully at 61.3 MB and the Web JavaScript release completed.
+
+## 2026-07-11 Confirmed AI review insights
+
+### Completed
+
+- Added `Review insight` to the left drawer for configured AI providers, using the current tag, selected date, or all active notes as an explicit user-selected scope.
+- Previewed exact source titles and dates before transmission, excluded archived notes and attachment bytes, and limited requests to 30 notes with 2000 characters per note.
+- Required structured themes, viewpoint changes, open questions, contradictions, and validated source IDs; fabricated source references are rejected.
+- Added cancellable generation, inspectable source notes, model/time audit details, and a second confirmation before saving the result as an editable Markdown note.
+
+### Verification
+
+- Added transport tests for structured parsing and out-of-scope source rejection.
+- Added a 360x800 end-to-end widget flow proving there is no request before source confirmation and no persistence before save confirmation.
+- `flutter test`: 70 tests passed; `flutter analyze`: passed with no issues.
+- Android release APK built successfully at 61.7 MB and the Web JavaScript release completed.

@@ -553,6 +553,100 @@ void main() {
     expect(titleField.controller!.text, '发布流程结论');
   });
 
+  testWidgets('Reviews confirmed notes and saves insight only after approval', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(360, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final now = DateTime.now();
+    await testRepository.upsertNote(
+      Note(
+        id: 'review-source',
+        title: '本周发布复盘',
+        content: '本周开始把稳定性放在发布速度之前。 #开发',
+        createdAt: now,
+        updatedAt: now,
+      ),
+    );
+    await testRepository.upsertNote(
+      Note(
+        id: 'review-archived',
+        title: '不应回顾的归档笔记',
+        content: '归档内容',
+        createdAt: now,
+        updatedAt: now,
+        isArchived: true,
+      ),
+    );
+    final remoteClient = _RecordingAiRemoteClient();
+    final aiProvider = AiProvider(
+      configStore: _MemoryAiConfigStore(),
+      remoteClient: remoteClient,
+    );
+    await aiProvider.save(
+      AiConfig.validated(
+        endpoint: 'https://example.com/v1',
+        model: 'model-mini',
+        apiKey: 'secret',
+      ),
+    );
+    await tester.pumpWidget(
+      DailyNotesApp(noteRepository: testRepository, aiProvider: aiProvider),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('homeSidebarButton')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('reviewInsightDrawerItem')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('reviewInsightSourceDetails')));
+    await tester.pumpAndSettle();
+    expect(find.text('本周发布复盘'), findsWidgets);
+    expect(find.text('不应回顾的归档笔记'), findsNothing);
+    expect(remoteClient.reviewCallCount, 0);
+    expect((await testRepository.getNotes()).length, 2);
+
+    await tester.tap(find.byKey(const ValueKey('confirmReviewInsightButton')));
+    await tester.pumpAndSettle();
+
+    expect(remoteClient.reviewCallCount, 1);
+    expect(find.byKey(const ValueKey('reviewInsightSummary')), findsOneWidget);
+    await tester.drag(
+      find.descendant(
+        of: find.byKey(const ValueKey('reviewInsightSheet')),
+        matching: find.byType(ListView),
+      ),
+      const Offset(0, -600),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('reviewInsightSource-review-source')),
+      findsOneWidget,
+    );
+    expect((await testRepository.getNotes()).length, 2);
+
+    await tester.tap(find.byKey(const ValueKey('saveReviewInsightButton')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('saveReviewInsightConfirmDialog')),
+      findsOneWidget,
+    );
+    expect((await testRepository.getNotes()).length, 2);
+    await tester.tap(
+      find.byKey(const ValueKey('confirmSaveReviewInsightButton')),
+    );
+    await tester.pumpAndSettle();
+
+    final savedNotes = await testRepository.getNotes();
+    expect(savedNotes, hasLength(3));
+    final insightNote = savedNotes.firstWhere(
+      (note) => note.title.startsWith('回顾洞察'),
+    );
+    expect(insightNote.content, contains('## 反复主题'));
+    expect(insightNote.content, contains('#回顾/AI洞察'));
+    expect(insightNote.tags, contains('#回顾/AI洞察'));
+  });
+
   testWidgets('Displays and removes an existing image attachment', (
     WidgetTester tester,
   ) async {
@@ -1104,6 +1198,7 @@ class _RecordingAiRemoteClient extends AiRemoteClient {
   int callCount = 0;
   int cleanCallCount = 0;
   int askCallCount = 0;
+  int reviewCallCount = 0;
 
   @override
   Future<List<AiTagSuggestion>> suggestTags(
@@ -1146,6 +1241,26 @@ class _RecordingAiRemoteClient extends AiRemoteClient {
       citations: [
         AiGroundedCitation(noteId: sources.single.id, reason: '来源笔记明确记录了发布前步骤'),
       ],
+    );
+  }
+
+  @override
+  Future<AiReviewInsight> createReviewInsight(
+    AiConfig config, {
+    required List<AiSourceNote> sources,
+    CancelToken? cancelToken,
+  }) async {
+    reviewCallCount++;
+    await Future<void>.delayed(const Duration(milliseconds: 80));
+    return AiReviewInsight(
+      summary: '近期更重视发布稳定性。',
+      themes: const ['回归测试与稳定性'],
+      viewpointChanges: const ['从快速发布转向稳定优先'],
+      openQuestions: const ['自动化覆盖是否足够？'],
+      contradictions: const ['速度与稳定性的取舍仍需明确'],
+      sourceNoteIds: sources.map((source) => source.id).toList(),
+      model: config.model,
+      generatedAt: DateTime(2026, 7, 11, 10, 30),
     );
   }
 }
