@@ -278,6 +278,140 @@ class SettingsPage extends StatelessWidget {
     }
   }
 
+  Future<void> _showAiConfigDialog(BuildContext context) async {
+    final provider = context.read<AiProvider>();
+    final current = provider.config;
+    final endpointController = TextEditingController(
+      text: current?.endpoint ?? 'https://api.openai.com/v1',
+    );
+    final modelController = TextEditingController(text: current?.model ?? '');
+    final keyController = TextEditingController(text: current?.apiKey ?? '');
+    var obscureKey = true;
+    String? errorMessage;
+
+    try {
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (dialogContext, setDialogState) => AlertDialog(
+            title: const Text('AI 配置'),
+            content: SizedBox(
+              width: 480,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      key: const ValueKey('aiEndpointField'),
+                      controller: endpointController,
+                      keyboardType: TextInputType.url,
+                      decoration: const InputDecoration(
+                        labelText: 'OpenAI-compatible API 地址',
+                        prefixIcon: Icon(Icons.link),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      key: const ValueKey('aiModelField'),
+                      controller: modelController,
+                      decoration: const InputDecoration(
+                        labelText: '模型名称',
+                        hintText: '例如 gpt-4.1-mini',
+                        prefixIcon: Icon(Icons.memory_outlined),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      key: const ValueKey('aiApiKeyField'),
+                      controller: keyController,
+                      obscureText: obscureKey,
+                      decoration: InputDecoration(
+                        labelText: 'API key（本地服务可留空）',
+                        prefixIcon: const Icon(Icons.key_outlined),
+                        suffixIcon: IconButton(
+                          onPressed: () =>
+                              setDialogState(() => obscureKey = !obscureKey),
+                          icon: Icon(
+                            obscureKey
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                          ),
+                          tooltip: obscureKey ? '显示 API key' : '隐藏 API key',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text('仅在你确认远端操作后发送所选笔记文字；图片和 WebDAV 凭据不会发送。'),
+                    if (errorMessage != null) ...[
+                      const SizedBox(height: 12),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          errorMessage!,
+                          style: TextStyle(
+                            color: Theme.of(dialogContext).colorScheme.error,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              if (current != null)
+                TextButton(
+                  key: const ValueKey('clearAiConfigButton'),
+                  onPressed: provider.isBusy
+                      ? null
+                      : () async {
+                          await provider.clear();
+                          if (dialogContext.mounted) {
+                            Navigator.of(dialogContext).pop();
+                          }
+                        },
+                  child: const Text('删除配置'),
+                ),
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('取消'),
+              ),
+              FilledButton(
+                key: const ValueKey('saveAiConfigButton'),
+                onPressed: provider.isBusy
+                    ? null
+                    : () async {
+                        try {
+                          final config = AiConfig.validated(
+                            endpoint: endpointController.text,
+                            model: modelController.text,
+                            apiKey: keyController.text,
+                          );
+                          await provider.save(config);
+                          if (dialogContext.mounted) {
+                            Navigator.of(dialogContext).pop();
+                          }
+                        } on FormatException catch (error) {
+                          setDialogState(
+                            () => errorMessage = error.message.toString(),
+                          );
+                        } catch (_) {
+                          setDialogState(() => errorMessage = 'AI 配置保存失败');
+                        }
+                      },
+                child: const Text('保存配置'),
+              ),
+            ],
+          ),
+        ),
+      );
+    } finally {
+      endpointController.dispose();
+      modelController.dispose();
+      keyController.dispose();
+    }
+  }
+
   Future<void> _runWebDavAction(
     BuildContext context,
     Future<void> Function() action,
@@ -358,6 +492,7 @@ class SettingsPage extends StatelessWidget {
         builder: (context, settings, child) {
           final noteCount = context.watch<NoteProvider>().notes.length;
           final webDav = context.watch<WebDavProvider>();
+          final ai = context.watch<AiProvider>();
           final noteProvider = context.read<NoteProvider>();
           return Align(
             alignment: Alignment.topCenter,
@@ -387,6 +522,23 @@ class SettingsPage extends StatelessWidget {
                         title: '从剪贴板恢复',
                         subtitle: '合并备份，同 ID 内容将覆盖',
                         onTap: () => _restoreBackup(context),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  _SettingsSection(
+                    title: 'AI 辅助',
+                    children: [
+                      _SettingsItem(
+                        key: const ValueKey('aiConfigItem'),
+                        icon: Icons.auto_awesome_outlined,
+                        title: '远端模型配置',
+                        subtitle: ai.isConfigured
+                            ? '${ai.config!.model} · 已加密保存'
+                            : '未配置，本地智能标签仍可使用',
+                        onTap: ai.isBusy
+                            ? null
+                            : () => _showAiConfigDialog(context),
                       ),
                     ],
                   ),

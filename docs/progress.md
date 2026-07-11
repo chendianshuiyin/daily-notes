@@ -621,3 +621,18 @@
 - Added unit coverage for ranking and privacy boundaries plus a widget test for the full confirm-and-insert flow.
 - `flutter test`: 49 tests passed; `flutter analyze`: passed with no issues.
 - Android release APK built successfully at 61.1 MB and the Web JavaScript release completed.
+
+## 2026-07-11 Secure AI configuration
+
+### Completed
+
+- Added validated OpenAI-compatible endpoint, model, and optional API-key configuration with HTTPS required for non-local endpoints.
+- Stored all AI configuration fields in platform secure storage and kept them outside note backups and WebDAV payloads.
+- Added an AI settings section with masked credentials, explicit transmission boundaries, and a delete-configuration action.
+- Kept AI disabled when no configuration exists; private local tag suggestions remain available independently.
+
+### Verification
+
+- Added configuration validation and provider lifecycle tests plus settings-dialog validation coverage.
+- `flutter test`: 53 tests passed; `flutter analyze`: passed with no issues.
+- Android release APK built successfully at 61.1 MB and the Web JavaScript release completed.

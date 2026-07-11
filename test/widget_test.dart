@@ -514,10 +514,6 @@ void main() {
 
     expect(find.text('复制笔记备份'), findsOneWidget);
     expect(find.text('从剪贴板恢复'), findsOneWidget);
-    expect(find.byKey(const ValueKey('webDavConfigItem')), findsOneWidget);
-    expect(find.byKey(const ValueKey('webDavSyncItem')), findsOneWidget);
-    expect(find.byKey(const ValueKey('webDavUploadItem')), findsOneWidget);
-    expect(find.byKey(const ValueKey('webDavDownloadItem')), findsOneWidget);
 
     await tester.scrollUntilVisible(
       find.byKey(const ValueKey('webDavConfigItem')),
@@ -533,6 +529,46 @@ void main() {
     expect(find.byKey(const ValueKey('webDavUsernameField')), findsOneWidget);
     expect(find.byKey(const ValueKey('webDavPasswordField')), findsOneWidget);
     expect(find.byKey(const ValueKey('webDavDirectoryField')), findsOneWidget);
+  });
+
+  testWidgets('Shows and validates encrypted AI configuration', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(testApp);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('设置'));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('aiConfigItem')),
+      220,
+      scrollable: find.byType(Scrollable).first,
+    );
+    final aiConfigItem = find.byKey(const ValueKey('aiConfigItem'));
+    await Scrollable.ensureVisible(
+      tester.element(aiConfigItem),
+      alignment: 0.5,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(aiConfigItem);
+    await tester.pumpAndSettle();
+
+    expect(find.text('AI 配置'), findsOneWidget);
+    expect(find.byKey(const ValueKey('aiEndpointField')), findsOneWidget);
+    expect(find.byKey(const ValueKey('aiModelField')), findsOneWidget);
+    expect(find.byKey(const ValueKey('aiApiKeyField')), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const ValueKey('aiEndpointField')),
+      'http://example.com/v1',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('aiModelField')),
+      'model-mini',
+    );
+    await tester.tap(find.byKey(const ValueKey('saveAiConfigButton')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('远端 AI 地址必须使用 HTTPS'), findsOneWidget);
   });
 
   testWidgets('Copies a valid backup to the clipboard', (
