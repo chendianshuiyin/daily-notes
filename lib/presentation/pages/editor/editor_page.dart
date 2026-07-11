@@ -5,11 +5,12 @@ import 'package:provider/provider.dart';
 import 'package:speech_to_text/speech_recognition_error.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
-import '../../../core/utils/utils.dart';
 import '../../../data/models/models.dart';
 import '../../../data/services/services.dart';
 import '../../providers/providers.dart';
 import '../../routers/app_router.dart';
+import 'note_block_editor.dart';
+import 'note_block_editor_controller.dart';
 import 'note_markdown_preview.dart';
 
 enum _VoicePhase { idle, starting, listening, reviewing }
@@ -33,6 +34,7 @@ class _EditorPageState extends State<EditorPage> {
   final NoteImageService _imageService = const NoteImageService();
   final NoteMarkdownCodec _markdownCodec = const NoteMarkdownCodec();
   final SpeechToText _speech = SpeechToText();
+  late NoteBlockEditorController _blockController;
 
   bool _isLoading = false;
   bool _isSaving = false;
@@ -47,7 +49,6 @@ class _EditorPageState extends State<EditorPage> {
   String _initialContent = '';
   String _initialImageIds = '';
   String _voiceTranscript = '';
-  int _voiceInsertionOffset = 0;
   List<LocaleName> _voiceLocales = const [];
   String? _voiceLocaleId;
   String _voiceLocaleLabel = '系统语言';
@@ -73,6 +74,18 @@ class _EditorPageState extends State<EditorPage> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _replaceBlockController(
+      NoteBlockEditorController(
+        blocks: _markdownCodec.decode('').blocks,
+        images: const [],
+      ),
+      disposePrevious: false,
+    );
+  }
+
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (!_hasLoadedInitialNote) {
@@ -84,9 +97,34 @@ class _EditorPageState extends State<EditorPage> {
   @override
   void dispose() {
     _speech.cancel();
+    _blockController.removeListener(_handleBlockChanged);
+    _blockController.dispose();
     _titleController.dispose();
     _contentController.dispose();
     super.dispose();
+  }
+
+  void _replaceBlockController(
+    NoteBlockEditorController controller, {
+    bool disposePrevious = true,
+  }) {
+    if (disposePrevious) {
+      _blockController.removeListener(_handleBlockChanged);
+      _blockController.dispose();
+    }
+    _blockController = controller;
+    _blockController.addListener(_handleBlockChanged);
+    _contentController.text = _blockController.markdown;
+    _images = List.of(_blockController.images);
+  }
+
+  void _handleBlockChanged() {
+    _contentController.text = _blockController.markdown;
+    _images = List.of(_blockController.images);
+    _updateDirtyState();
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   Future<void> _loadInitialNote() async {
@@ -124,11 +162,20 @@ class _EditorPageState extends State<EditorPage> {
     _currentNote = note;
     final editorContent = _contentWithInlineTags(note);
     _initialTitle = note.title;
-    _initialContent = editorContent;
     _initialImageIds = _imageIds(note.images);
-    _images = List.of(note.images);
     _titleController.text = note.title;
-    _contentController.text = editorContent;
+    final sourceBlocks = editorContent == note.content
+        ? note.blocks
+        : [
+            ..._markdownCodec
+                .decode(editorContent, existingBlocks: note.blocks)
+                .blocks,
+            ...note.blocks.where((block) => block.type == NoteBlockType.image),
+          ];
+    _replaceBlockController(
+      NoteBlockEditorController(blocks: sourceBlocks, images: note.images),
+    );
+    _initialContent = _blockController.markdown.trim();
     setState(() {
       _isLoading = false;
       _isDirty = false;
@@ -152,28 +199,12 @@ class _EditorPageState extends State<EditorPage> {
 
     setState(() => _isSaving = true);
     try {
-      final textBlocks = _markdownCodec
-          .decode(content, existingBlocks: _currentNote?.blocks ?? const [])
-          .blocks;
-      final existingImageBlocks = {
-        for (final block in _currentNote?.blocks ?? const <NoteBlock>[])
-          if (block.type == NoteBlockType.image && block.imageId != null)
-            block.imageId!: block,
-      };
-      final imageBlocks = _images.map((image) {
-        return existingImageBlocks[image.id] ??
-            NoteBlock(
-              id: 'image-${image.id}',
-              type: NoteBlockType.image,
-              imageId: image.id,
-            );
-      });
       final note = await context.read<NoteProvider>().saveNote(
         id: _currentNote?.id ?? widget.noteId,
         title: title,
         content: content,
         images: _images,
-        blocks: [...textBlocks, ...imageBlocks],
+        blocks: _blockController.blocks,
         tags: Note.extractTags('$title $content'),
       );
 
@@ -329,8 +360,7 @@ class _EditorPageState extends State<EditorPage> {
       if (!mounted || selected.isEmpty) {
         return;
       }
-      setState(() => _images = [..._images, ...selected]);
-      _updateDirtyState();
+      await _blockController.insertImages(selected);
     } on NoteImageException catch (error) {
       if (mounted) {
         _showError(error.message);
@@ -347,46 +377,15 @@ class _EditorPageState extends State<EditorPage> {
     }
   }
 
-  void _insertCurrentTime() {
+  Future<void> _insertCurrentTime() async {
     final now = DateTime.now();
     final timestamp =
         '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
-    final value = _contentController.value;
-    final selection = value.selection;
-    final offset = selection.isValid ? selection.start : value.text.length;
-    final prefix = offset > 0 && !value.text.substring(0, offset).endsWith('\n')
-        ? '\n'
-        : '';
-    final insertion = '$prefix$timestamp ';
-    final updatedText = value.text.replaceRange(offset, offset, insertion);
-    _contentController.value = value.copyWith(
-      text: updatedText,
-      selection: TextSelection.collapsed(offset: offset + insertion.length),
-      composing: TextRange.empty,
-    );
-    _updateDirtyState();
+    await _blockController.insertText('$timestamp ');
   }
 
-  void _insertTagMarker() {
-    final value = _contentController.value;
-    final selection = value.selection;
-    final start = selection.isValid ? selection.start : value.text.length;
-    final end = selection.isValid ? selection.end : start;
-    final selected = value.text
-        .substring(start, end)
-        .trim()
-        .replaceAll(' ', '_');
-    final needsSpace =
-        start > 0 && !RegExp(r'\s').hasMatch(value.text[start - 1]);
-    final insertion =
-        '${needsSpace ? ' ' : ''}#${selected.isEmpty ? '' : selected}';
-    final updatedText = value.text.replaceRange(start, end, insertion);
-    _contentController.value = value.copyWith(
-      text: updatedText,
-      selection: TextSelection.collapsed(offset: start + insertion.length),
-      composing: TextRange.empty,
-    );
-    _updateDirtyState();
+  Future<void> _insertTagMarker() async {
+    await _blockController.insertText('#');
   }
 
   Future<void> _toggleVoiceInput() async {
@@ -406,10 +405,7 @@ class _EditorPageState extends State<EditorPage> {
 
   Future<void> _startVoiceInput() async {
     FocusScope.of(context).unfocus();
-    final selection = _contentController.selection;
-    _voiceInsertionOffset = selection.isValid
-        ? selection.start.clamp(0, _contentController.text.length)
-        : _contentController.text.length;
+    _blockController.captureInsertionSelection();
     setState(() {
       _voicePhase = _VoicePhase.starting;
       _voiceTranscript = '';
@@ -539,28 +535,17 @@ class _EditorPageState extends State<EditorPage> {
     }
   }
 
-  void _insertVoiceTranscript() {
+  Future<void> _insertVoiceTranscript() async {
     final transcript = _voiceTranscript.trim();
     if (transcript.isEmpty) {
       _discardVoiceTranscript();
       return;
     }
-    final value = _contentController.value;
-    final edit = VoiceTranscriptUtil.insert(
-      source: value.text,
-      offset: _voiceInsertionOffset,
-      transcript: transcript,
-    );
-    _contentController.value = value.copyWith(
-      text: edit.text,
-      selection: TextSelection.collapsed(offset: edit.cursorOffset),
-      composing: TextRange.empty,
-    );
+    await _blockController.insertText(transcript, atCapturedSelection: true);
     setState(() {
       _voicePhase = _VoicePhase.idle;
       _voiceTranscript = '';
     });
-    _updateDirtyState();
   }
 
   Future<void> _retryVoiceInput() async {
@@ -596,11 +581,11 @@ class _EditorPageState extends State<EditorPage> {
     });
   }
 
-  void _removeImage(NoteImage image) {
-    setState(() {
-      _images = _images.where((item) => item.id != image.id).toList();
-    });
-    _updateDirtyState();
+  void _previewImageById(String imageId) {
+    final image = _blockController.imageById(imageId);
+    if (image != null) {
+      _showImagePreview(image);
+    }
   }
 
   Future<void> _showImagePreview(NoteImage image) async {
@@ -803,6 +788,7 @@ class _EditorPageState extends State<EditorPage> {
               },
               itemBuilder: (context) => [
                 const PopupMenuItem(
+                  key: ValueKey('markdownPreviewMenuItem'),
                   value: 'preview',
                   child: ListTile(
                     contentPadding: EdgeInsets.zero,
@@ -911,26 +897,11 @@ class _EditorPageState extends State<EditorPage> {
                               ),
                               const Divider(),
                               Expanded(
-                                child: TextField(
-                                  key: const ValueKey('noteContentField'),
-                                  controller: _contentController,
-                                  onChanged: _handleDraftChanged,
+                                key: const ValueKey('noteContentField'),
+                                child: NoteBlockEditor(
+                                  controller: _blockController,
                                   enabled: !_voiceSessionActive,
-                                  keyboardType: TextInputType.multiline,
-                                  textInputAction: TextInputAction.newline,
-                                  maxLines: null,
-                                  expands: true,
-                                  textAlignVertical: TextAlignVertical.top,
-                                  decoration: const InputDecoration(
-                                    hintText: '记录想法，可直接输入 #标签/子标签...',
-                                    border: InputBorder.none,
-                                    enabledBorder: InputBorder.none,
-                                    focusedBorder: InputBorder.none,
-                                    filled: false,
-                                    contentPadding: EdgeInsets.symmetric(
-                                      vertical: 12,
-                                    ),
-                                  ),
+                                  onPreviewImage: _previewImageById,
                                 ),
                               ),
                               if (_voiceSessionActive) ...[
@@ -946,14 +917,6 @@ class _EditorPageState extends State<EditorPage> {
                                   onRetry: _retryVoiceInput,
                                   onDiscard: _discardVoiceTranscript,
                                   onLocaleSelected: _selectVoiceLocale,
-                                ),
-                              ],
-                              if (_images.isNotEmpty) ...[
-                                const SizedBox(height: 12),
-                                _AttachmentStrip(
-                                  images: _images,
-                                  onPreview: _showImagePreview,
-                                  onRemove: _removeImage,
                                 ),
                               ],
                             ],
@@ -986,76 +949,112 @@ class _EditorPageState extends State<EditorPage> {
                       ),
                       child: Row(
                         children: [
-                          IconButton(
-                            key: const ValueKey('addNoteImageButton'),
-                            onPressed: _isPickingImages ? null : _pickImages,
-                            icon: _isPickingImages
-                                ? const SizedBox.square(
-                                    dimension: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
+                          if (_blockController.selectedImageId
+                              case final imageId?) ...[
+                            IconButton(
+                              key: const ValueKey('previewSelectedImageButton'),
+                              onPressed: () => _previewImageById(imageId),
+                              icon: const Icon(Icons.open_in_full),
+                              tooltip: '预览图片',
+                            ),
+                            IconButton(
+                              key: const ValueKey('moveSelectedImageUpButton'),
+                              onPressed: () =>
+                                  _blockController.moveImage(imageId, -1),
+                              icon: const Icon(Icons.arrow_upward),
+                              tooltip: '上移图片',
+                            ),
+                            IconButton(
+                              key: const ValueKey(
+                                'moveSelectedImageDownButton',
+                              ),
+                              onPressed: () =>
+                                  _blockController.moveImage(imageId, 1),
+                              icon: const Icon(Icons.arrow_downward),
+                              tooltip: '下移图片',
+                            ),
+                            IconButton(
+                              key: const ValueKey('removeSelectedImageButton'),
+                              onPressed: () =>
+                                  _blockController.removeImage(imageId),
+                              icon: Icon(
+                                Icons.delete_outline,
+                                color: Theme.of(context).colorScheme.error,
+                              ),
+                              tooltip: '删除图片',
+                            ),
+                          ] else ...[
+                            IconButton(
+                              key: const ValueKey('addNoteImageButton'),
+                              onPressed: _isPickingImages ? null : _pickImages,
+                              icon: _isPickingImages
+                                  ? const SizedBox.square(
+                                      dimension: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(
+                                      Icons.add_photo_alternate_outlined,
                                     ),
-                                  )
-                                : const Icon(
-                                    Icons.add_photo_alternate_outlined,
-                                  ),
-                            tooltip: '添加图片',
-                          ),
-                          Text(
-                            '${_images.length}/${NoteImageService.maxImagesPerNote}',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                          IconButton(
-                            onPressed: _insertCurrentTime,
-                            icon: const Icon(Icons.schedule_outlined),
-                            tooltip: '插入当前时间',
-                          ),
-                          IconButton(
-                            key: const ValueKey('inlineTagButton'),
-                            onPressed: _insertTagMarker,
-                            icon: const Icon(Icons.tag_outlined),
-                            tooltip: '插入 #标签',
-                          ),
-                          IconButton(
-                            key: const ValueKey('voiceInputButton'),
-                            onPressed:
-                                !_voiceInputSupported ||
-                                    _voicePhase == _VoicePhase.starting ||
-                                    _voicePhase == _VoicePhase.reviewing
-                                ? null
-                                : _toggleVoiceInput,
-                            icon: _voicePhase == _VoicePhase.starting
-                                ? const SizedBox.square(
-                                    dimension: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
+                              tooltip: '添加图片',
+                            ),
+                            Text(
+                              '${_images.length}/${NoteImageService.maxImagesPerNote}',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                            IconButton(
+                              onPressed: _insertCurrentTime,
+                              icon: const Icon(Icons.schedule_outlined),
+                              tooltip: '插入当前时间',
+                            ),
+                            IconButton(
+                              key: const ValueKey('inlineTagButton'),
+                              onPressed: _insertTagMarker,
+                              icon: const Icon(Icons.tag_outlined),
+                              tooltip: '插入 #标签',
+                            ),
+                            IconButton(
+                              key: const ValueKey('voiceInputButton'),
+                              onPressed:
+                                  !_voiceInputSupported ||
+                                      _voicePhase == _VoicePhase.starting ||
+                                      _voicePhase == _VoicePhase.reviewing
+                                  ? null
+                                  : _toggleVoiceInput,
+                              icon: _voicePhase == _VoicePhase.starting
+                                  ? const SizedBox.square(
+                                      dimension: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : Icon(
+                                      _isListening
+                                          ? Icons.stop_circle_outlined
+                                          : Icons.mic_none_outlined,
+                                      color: _isListening
+                                          ? Theme.of(context).colorScheme.error
+                                          : null,
                                     ),
-                                  )
-                                : Icon(
-                                    _isListening
-                                        ? Icons.stop_circle_outlined
-                                        : Icons.mic_none_outlined,
-                                    color: _isListening
-                                        ? Theme.of(context).colorScheme.error
-                                        : null,
-                                  ),
-                            tooltip: !_voiceInputSupported
-                                ? '当前平台不支持语音输入'
-                                : _voicePhase == _VoicePhase.starting
-                                ? '正在准备语音输入'
-                                : _voicePhase == _VoicePhase.reviewing
-                                ? '请先处理识别结果'
-                                : _isListening
-                                ? '停止语音输入'
-                                : '开始语音输入',
-                          ),
+                              tooltip: !_voiceInputSupported
+                                  ? '当前平台不支持语音输入'
+                                  : _voicePhase == _VoicePhase.starting
+                                  ? '正在准备语音输入'
+                                  : _voicePhase == _VoicePhase.reviewing
+                                  ? '请先处理识别结果'
+                                  : _isListening
+                                  ? '停止语音输入'
+                                  : '开始语音输入',
+                            ),
+                          ],
                           const Spacer(),
                           SizedBox(
                             width: 64,
                             child: Text(
                               _isListening
                                   ? '听写中'
-                                  : '${_contentController.text.trim().length} 字',
+                                  : '${_blockController.characterCount} 字',
                               textAlign: TextAlign.end,
                               overflow: TextOverflow.ellipsis,
                               style: Theme.of(context).textTheme.bodySmall,
@@ -1113,7 +1112,7 @@ class _VoiceInputPanel extends StatelessWidget {
   final List<LocaleName> locales;
   final String? selectedLocaleId;
   final Future<void> Function() onStop;
-  final VoidCallback onInsert;
+  final Future<void> Function() onInsert;
   final Future<void> Function() onRetry;
   final VoidCallback onDiscard;
   final Future<void> Function(String localeId) onLocaleSelected;
@@ -1249,73 +1248,6 @@ class _VoiceInputPanel extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _AttachmentStrip extends StatelessWidget {
-  const _AttachmentStrip({
-    required this.images,
-    required this.onPreview,
-    required this.onRemove,
-  });
-
-  final List<NoteImage> images;
-  final ValueChanged<NoteImage> onPreview;
-  final ValueChanged<NoteImage> onRemove;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 108,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: images.length,
-        separatorBuilder: (context, index) => const SizedBox(width: 10),
-        itemBuilder: (context, index) {
-          final image = images[index];
-          return Stack(
-            children: [
-              InkWell(
-                key: ValueKey('noteImage-${image.id}'),
-                onTap: () => onPreview(image),
-                borderRadius: BorderRadius.circular(8),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.memory(
-                    image.bytes,
-                    width: 108,
-                    height: 108,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Container(
-                      width: 108,
-                      height: 108,
-                      color: Theme.of(context).colorScheme.surfaceContainerHigh,
-                      alignment: Alignment.center,
-                      child: const Icon(Icons.broken_image_outlined),
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                top: 4,
-                right: 4,
-                child: IconButton.filled(
-                  key: ValueKey('removeNoteImage-${image.id}'),
-                  constraints: const BoxConstraints.tightFor(
-                    width: 32,
-                    height: 32,
-                  ),
-                  padding: EdgeInsets.zero,
-                  onPressed: () => onRemove(image),
-                  icon: const Icon(Icons.close, size: 18),
-                  tooltip: '移除图片',
-                ),
-              ),
-            ],
-          );
-        },
       ),
     );
   }

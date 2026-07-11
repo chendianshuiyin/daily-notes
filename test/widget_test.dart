@@ -1,3 +1,4 @@
+import 'package:appflowy_editor/appflowy_editor.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -6,6 +7,7 @@ import 'package:daily_notes/main.dart';
 import 'package:daily_notes/data/models/models.dart';
 import 'package:daily_notes/data/services/services.dart';
 import 'package:daily_notes/domain/repositories/repositories.dart';
+import 'package:daily_notes/presentation/pages/editor/note_block_editor.dart';
 
 Future<void> pumpUntilFound(WidgetTester tester, Finder finder) async {
   for (var attempt = 0; attempt < 40; attempt++) {
@@ -14,6 +16,12 @@ Future<void> pumpUntilFound(WidgetTester tester, Finder finder) async {
     }
     await tester.pump(const Duration(milliseconds: 50));
   }
+}
+
+Future<void> enterNoteBody(WidgetTester tester, String text) async {
+  final editor = tester.widget<NoteBlockEditor>(find.byType(NoteBlockEditor));
+  await editor.controller.insertText(text);
+  await tester.pump();
 }
 
 void main() {
@@ -98,10 +106,7 @@ void main() {
       find.byKey(const ValueKey('noteTitleField')),
       '可用性测试笔记',
     );
-    await tester.enterText(
-      find.byKey(const ValueKey('noteContentField')),
-      '这是一条可以保存并显示在首页的笔记。 #工作/项目',
-    );
+    await enterNoteBody(tester, '这是一条可以保存并显示在首页的笔记。 #工作/项目');
     await tester.tap(find.byKey(const ValueKey('saveNoteButton')));
     await tester.pumpAndSettle();
 
@@ -116,14 +121,17 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('新建笔记'));
     await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const ValueKey('noteContentField')),
-      '# Preview heading\n- first item\n#tag',
-    );
+    await enterNoteBody(tester, '# Preview heading\n- first item\n#tag');
+    tester.testTextInput.hide();
+    await tester.pumpAndSettle();
 
     await tester.tap(find.byTooltip('更多操作'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Markdown 预览'));
+    final previewMenuItem = find.byKey(
+      const ValueKey('markdownPreviewMenuItem'),
+    );
+    expect(previewMenuItem, findsOneWidget);
+    await tester.tap(previewMenuItem);
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('markdownPreview')), findsOneWidget);
@@ -152,10 +160,13 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('closeMarkdownPreviewButton')));
     await tester.pumpAndSettle();
-    final field = tester.widget<TextField>(
-      find.byKey(const ValueKey('noteContentField')),
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('noteContentEditor')),
+        matching: find.textContaining('Preview heading', findRichText: true),
+      ),
+      findsWidgets,
     );
-    expect(field.controller?.text, contains('# Preview heading'));
   });
 
   testWidgets('Displays and removes an existing image attachment', (
@@ -188,19 +199,95 @@ void main() {
 
     await tester.tap(find.text('图文笔记').first);
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('noteImage-image-1')), findsOneWidget);
-
-    final removeImageButton = find.byKey(
-      const ValueKey('removeNoteImage-image-1'),
+    final inlineImage = find.descendant(
+      of: find.byKey(const ValueKey('noteContentEditor')),
+      matching: find.byType(Image),
     );
-    await tester.ensureVisible(removeImageButton);
+    expect(inlineImage, findsOneWidget);
+    final blockEditor = tester.widget<NoteBlockEditor>(
+      find.byType(NoteBlockEditor),
+    );
+    final imageIndex = blockEditor.controller.blocks.indexWhere(
+      (block) => block.type == NoteBlockType.image,
+    );
+    blockEditor.controller.editorState.selection = Selection.single(
+      path: [imageIndex],
+      startOffset: 0,
+      endOffset: 1,
+    );
+    await tester.pump();
+    final removeImageButton = find.byKey(
+      const ValueKey('removeSelectedImageButton'),
+    );
+    expect(removeImageButton, findsOneWidget);
     await tester.tap(removeImageButton);
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('noteImage-image-1')), findsNothing);
+    expect(inlineImage, findsNothing);
 
     await tester.tap(find.byIcon(Icons.arrow_back));
     await tester.pumpAndSettle();
     expect(find.text('放弃未保存的更改？'), findsOneWidget);
+  });
+
+  testWidgets('Persists mixed text and image block order', (
+    WidgetTester tester,
+  ) async {
+    final date = DateTime.now();
+    await testRepository.upsertNote(
+      Note(
+        id: 'mixed-note',
+        title: '混排笔记',
+        content: 'Before\nAfter',
+        createdAt: date,
+        updatedAt: date,
+        images: const [
+          NoteImage(
+            id: 'mixed-image',
+            name: 'pixel.png',
+            mimeType: 'image/png',
+            base64Data:
+                'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+          ),
+        ],
+        blocks: const [
+          NoteBlock(
+            id: 'before',
+            type: NoteBlockType.paragraph,
+            text: 'Before',
+          ),
+          NoteBlock(
+            id: 'mixed-image-block',
+            type: NoteBlockType.image,
+            imageId: 'mixed-image',
+          ),
+          NoteBlock(id: 'after', type: NoteBlockType.paragraph, text: 'After'),
+        ],
+      ),
+    );
+
+    await tester.pumpWidget(testApp);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('混排笔记').first);
+    await tester.pumpAndSettle();
+    final editor = tester.widget<NoteBlockEditor>(find.byType(NoteBlockEditor));
+    editor.controller.editorState.selection = Selection.single(
+      path: const [1],
+      startOffset: 0,
+      endOffset: 1,
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('moveSelectedImageDownButton')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('saveNoteButton')));
+    await tester.pumpAndSettle();
+
+    final saved = await testRepository.getNoteById('mixed-note');
+    expect(saved!.blocks.map((block) => block.type), [
+      NoteBlockType.paragraph,
+      NoteBlockType.paragraph,
+      NoteBlockType.image,
+    ]);
+    expect(saved.blocks[2].imageId, 'mixed-image');
   });
 
   testWidgets('Searches and filters active and archived notes', (
@@ -293,10 +380,21 @@ void main() {
     await tester.tap(find.text('旧标签笔记'));
     await tester.pumpAndSettle();
 
-    final contentField = tester.widget<TextField>(
-      find.byKey(const ValueKey('noteContentField')),
+    final editor = find.byKey(const ValueKey('noteContentEditor'));
+    expect(
+      find.descendant(
+        of: editor,
+        matching: find.textContaining('原始正文', findRichText: true),
+      ),
+      findsWidgets,
     );
-    expect(contentField.controller?.text, '原始正文\n\n#迁移/待办');
+    expect(
+      find.descendant(
+        of: editor,
+        matching: find.textContaining('#迁移/待办', findRichText: true),
+      ),
+      findsWidgets,
+    );
   });
 
   testWidgets('Filters untagged notes and clears a stale tag filter', (
@@ -399,10 +497,7 @@ void main() {
       find.byKey(const ValueKey('noteTitleField')),
       '需要备份的笔记',
     );
-    await tester.enterText(
-      find.byKey(const ValueKey('noteContentField')),
-      '备份正文',
-    );
+    await enterNoteBody(tester, '备份正文');
     await tester.tap(find.byKey(const ValueKey('saveNoteButton')));
     await tester.pumpAndSettle();
 

@@ -562,3 +562,31 @@
 
 - Replace source-only body editing with the full block editing surface and formatting controls.
 - Insert image blocks at the caret, then add captions, reorder, replace, and mixed text/image persistence tests.
+
+## 2026-07-11 Mixed block editor
+
+### Completed
+
+- Replaced the source-only body field with an `appflowy_editor` block surface backed by the app-owned V2 schema.
+- Added live paragraph, heading, bullet, numbered-list, quote, divider, inline Markdown, selection, clipboard, and undo/redo behavior.
+- Added a transaction-safe fallback for heading shortcuts missed by Android IME composition updates.
+- Inserted one or more image blocks after the selected root block and retained a trailing paragraph for continued writing.
+- Added touch-accessible image preview, move-up, move-down, and delete controls; desktop also exposes the actions on hover.
+- Preserved inline text styles as Markdown in the compatibility shadow while keeping image bytes in `NoteImage` references.
+- Added a visible empty-editor hint and a stable 360-pixel image-block width.
+
+### Verification
+
+- `flutter test`: 43 tests passed, including block conversion, multi-image insertion, image move/delete, mixed-order persistence, and heading IME fallback.
+- `flutter analyze`: passed with no issues.
+- Android release APK built successfully at 60.7 MB.
+- Web JavaScript release built successfully; the Wasm dry run currently reports `dart:html` usage from the editor's `universal_html` dependency.
+- Android 36 emulator verified real IME input, `# ` heading conversion, `- ` list conversion, a selected image action toolbar, and the `1/12` counter.
+- Saved a heading-plus-image note, force-stopped the app, cold-launched, and confirmed the heading block and image reference reloaded.
+
+### Remaining Work
+
+- Add image captions, replace-image action, and desktop drag handles.
+- Add explicit mobile formatting controls without covering the app save toolbar.
+- Recheck Web Wasm compatibility when the editor dependency removes its `dart:html` bridge; this does not affect the current JavaScript Web release.
+- Continue with the opt-in AI organization and review features after these editor details are stable.
