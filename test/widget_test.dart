@@ -7,9 +7,11 @@ import 'package:daily_notes/main.dart';
 import 'package:daily_notes/data/models/models.dart';
 import 'package:daily_notes/data/services/services.dart';
 import 'package:daily_notes/domain/repositories/repositories.dart';
+import 'package:daily_notes/presentation/pages/editor/editor_page.dart';
 import 'package:daily_notes/presentation/pages/editor/note_block_editor.dart';
 import 'package:daily_notes/presentation/providers/providers.dart';
 import 'package:dio/dio.dart';
+import 'package:provider/provider.dart';
 
 Future<void> pumpUntilFound(WidgetTester tester, Finder finder) async {
   for (var attempt = 0; attempt < 40; attempt++) {
@@ -297,6 +299,78 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('applySmartTagsButton')));
     await tester.pumpAndSettle();
     expect(editor.controller.markdown, contains('#开发/Flutter'));
+  });
+
+  testWidgets('Reviews AI-cleaned voice text before inserting a version', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(360, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final store = _MemoryAiConfigStore();
+    final remoteClient = _RecordingAiRemoteClient();
+    final aiProvider = AiProvider(
+      configStore: store,
+      remoteClient: remoteClient,
+    );
+    await aiProvider.save(
+      AiConfig.validated(
+        endpoint: 'https://example.com/v1',
+        model: 'model-mini',
+        apiKey: 'secret',
+      ),
+    );
+    final noteProvider = NoteProvider(repository: testRepository);
+    await noteProvider.loadNotes();
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<NoteProvider>.value(value: noteProvider),
+          ChangeNotifierProvider<AiProvider>.value(value: aiProvider),
+        ],
+        child: const MaterialApp(
+          home: EditorPage(initialVoiceTranscript: '嗯今天要整理发布计划'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('cleanVoiceWithAiButton')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const ValueKey('cleanVoiceWithAiButton')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('voiceAiScopeDialog')), findsOneWidget);
+    expect(remoteClient.cleanCallCount, 0);
+    await tester.tap(find.byKey(const ValueKey('confirmVoiceAiButton')));
+    await tester.pump();
+    expect(find.byKey(const ValueKey('voiceAiProgressDialog')), findsOneWidget);
+    await tester.pumpAndSettle();
+
+    expect(remoteClient.cleanCallCount, 1);
+    expect(find.byKey(const ValueKey('voiceVersionSegment')), findsOneWidget);
+    expect(
+      find.textContaining('今天要整理发布计划。', findRichText: true),
+      findsOneWidget,
+    );
+    final editor = tester.widget<NoteBlockEditor>(find.byType(NoteBlockEditor));
+    expect(editor.controller.markdown, isEmpty);
+    await tester.tap(find.text('原文'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('嗯今天要整理'), findsOneWidget);
+    await tester.tap(find.text('AI 建议'));
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining('今天要整理发布计划。', findRichText: true),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const ValueKey('insertVoiceInputButton')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('voiceInputPanel')), findsNothing);
+    final updatedEditor = tester.widget<NoteBlockEditor>(
+      find.byType(NoteBlockEditor),
+    );
+    expect(updatedEditor.controller.markdown, contains('今天要整理发布计划。'));
   });
 
   testWidgets('Finds and opens explainable local related notes', (
@@ -899,6 +973,7 @@ class _MemoryAiConfigStore implements AiConfigStore {
 
 class _RecordingAiRemoteClient extends AiRemoteClient {
   int callCount = 0;
+  int cleanCallCount = 0;
 
   @override
   Future<List<AiTagSuggestion>> suggestTags(
@@ -911,6 +986,20 @@ class _RecordingAiRemoteClient extends AiRemoteClient {
     return const [
       AiTagSuggestion(tag: '#开发/Flutter', reason: '正文提到了 Flutter 编辑器'),
     ];
+  }
+
+  @override
+  Future<AiTranscriptSuggestion> cleanTranscript(
+    AiConfig config,
+    String transcript, {
+    CancelToken? cancelToken,
+  }) async {
+    cleanCallCount++;
+    await Future<void>.delayed(const Duration(milliseconds: 80));
+    return AiTranscriptSuggestion(
+      original: transcript,
+      suggested: '今天要整理发布计划。',
+    );
   }
 }
 

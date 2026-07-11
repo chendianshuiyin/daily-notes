@@ -680,6 +680,7 @@
 - Added a widget test proving the remote client is not called before scope confirmation and that returned tags remain unapplied until the user confirms insertion.
 - `flutter test`: 59 tests passed; `flutter analyze`: passed with no issues.
 - Android release APK built successfully at 61.3 MB and the Web JavaScript release completed.
+- Android 36 emulator upgrade installation visually confirmed the fixed Save action and overflow-free scrollable tool strip on the narrow editor layout.
 
 ## 2026-07-11 Explainable related notes
 
@@ -694,3 +695,21 @@
 - Added unit coverage for ranking/exclusion rules and a widget test that rejects unrelated content and opens the selected source note.
 - `flutter test`: 61 tests passed; `flutter analyze`: passed with no issues.
 - Android release APK built successfully at 61.3 MB.
+
+## 2026-07-11 Optional AI voice cleanup
+
+### Completed
+
+- Added conservative remote voice cleanup that removes filler words and fixes obvious recognition/punctuation errors without changing the core capture flow.
+- Added action-time confirmation that sends only the displayed transcript prefix and never includes note text, images, tags, WebDAV data, or hidden metadata.
+- Preserved the complete original transcript, appended any unsent long-transcript tail unchanged, and provided `Original` / `AI suggestion` switching with inline changed-text highlighting.
+- Added cancellable progress, kept original insertion available after remote errors, and inserted only the version selected by the user.
+- Fixed a real voice insertion race where the disabled block editor could synchronize a programmatic insert back to empty; insertion now re-enables the editor for one frame before applying the transaction.
+- Hardened text insertion against stale AppFlowy selections by validating node paths and offsets before falling back to the document end.
+
+### Verification
+
+- Added remote transcript parsing/injection-boundary coverage, stale-selection fallback coverage, and a full widget flow from scope confirmation through version review and insertion.
+- The voice review flow passes at a fixed 360x800 viewport; this also exposed and fixed a 66-pixel bottom-toolbar overflow by making secondary tools horizontally scrollable while keeping Save fixed.
+- `flutter test`: 64 tests passed; `flutter analyze`: passed with no issues.
+- Android release APK built successfully at 61.3 MB and the Web JavaScript release completed.

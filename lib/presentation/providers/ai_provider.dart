@@ -74,6 +74,34 @@ class AiProvider extends ChangeNotifier {
     }
   }
 
+  Future<AiTranscriptSuggestion> cleanTranscript(String transcript) async {
+    final currentConfig = _config;
+    if (currentConfig == null) {
+      throw const AiRemoteException(AiRemoteError.authentication, '请先配置 AI 服务');
+    }
+    if (_isBusy) {
+      throw const AiRemoteException(AiRemoteError.network, '另一个 AI 操作正在进行');
+    }
+    _isBusy = true;
+    _errorMessage = null;
+    _cancelToken = CancelToken();
+    notifyListeners();
+    try {
+      return await _remoteClient.cleanTranscript(
+        currentConfig,
+        transcript,
+        cancelToken: _cancelToken,
+      );
+    } on AiRemoteException catch (error) {
+      _errorMessage = error.message;
+      rethrow;
+    } finally {
+      _cancelToken = null;
+      _isBusy = false;
+      notifyListeners();
+    }
+  }
+
   void cancel() {
     _cancelToken?.cancel('Cancelled by user');
   }

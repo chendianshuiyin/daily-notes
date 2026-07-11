@@ -19,10 +19,17 @@ enum _VoicePhase { idle, starting, listening, reviewing }
 ///
 /// 笔记编辑器页面，支持富文本编辑
 class EditorPage extends StatefulWidget {
-  const EditorPage({super.key, this.noteId});
+  const EditorPage({
+    super.key,
+    this.noteId,
+    @visibleForTesting this.initialVoiceTranscript,
+  });
 
   /// 要编辑的笔记 ID，如果为 null 则创建新笔记
   final String? noteId;
+
+  @visibleForTesting
+  final String? initialVoiceTranscript;
 
   @override
   State<EditorPage> createState() => _EditorPageState();
@@ -43,6 +50,7 @@ class _EditorPageState extends State<EditorPage> {
   bool _isDirty = false;
   bool _allowPop = false;
   bool _isPickingImages = false;
+  bool _isApplyingVoiceTranscript = false;
   _VoicePhase _voicePhase = _VoicePhase.idle;
   Note? _currentNote;
   List<NoteImage> _images = [];
@@ -50,6 +58,8 @@ class _EditorPageState extends State<EditorPage> {
   String _initialContent = '';
   String _initialImageIds = '';
   String _voiceTranscript = '';
+  AiTranscriptSuggestion? _voiceSuggestion;
+  bool _showSuggestedVoice = false;
   List<LocaleName> _voiceLocales = const [];
   String? _voiceLocaleId;
   String _voiceLocaleLabel = '系统语言';
@@ -84,6 +94,11 @@ class _EditorPageState extends State<EditorPage> {
       ),
       disposePrevious: false,
     );
+    final initialVoiceTranscript = widget.initialVoiceTranscript?.trim();
+    if (initialVoiceTranscript != null && initialVoiceTranscript.isNotEmpty) {
+      _voiceTranscript = initialVoiceTranscript;
+      _voicePhase = _VoicePhase.reviewing;
+    }
   }
 
   @override
@@ -410,6 +425,8 @@ class _EditorPageState extends State<EditorPage> {
     setState(() {
       _voicePhase = _VoicePhase.starting;
       _voiceTranscript = '';
+      _voiceSuggestion = null;
+      _showSuggestedVoice = false;
     });
     try {
       final available = await _speech.initialize(
@@ -520,6 +537,8 @@ class _EditorPageState extends State<EditorPage> {
     }
     setState(() {
       _voiceTranscript = words;
+      _voiceSuggestion = null;
+      _showSuggestedVoice = false;
       if (result.finalResult) {
         _voicePhase = _VoicePhase.reviewing;
       }
@@ -537,15 +556,33 @@ class _EditorPageState extends State<EditorPage> {
   }
 
   Future<void> _insertVoiceTranscript() async {
-    final transcript = _voiceTranscript.trim();
-    if (transcript.isEmpty) {
+    final transcript =
+        (_showSuggestedVoice
+            ? _voiceSuggestion?.suggested
+            : _voiceSuggestion?.original) ??
+        _voiceTranscript;
+    final normalized = transcript.trim();
+    if (normalized.isEmpty) {
       _discardVoiceTranscript();
       return;
     }
-    await _blockController.insertText(transcript, atCapturedSelection: true);
+    setState(() => _isApplyingVoiceTranscript = true);
+    await WidgetsBinding.instance.endOfFrame;
+    try {
+      await _blockController.insertText(normalized, atCapturedSelection: true);
+    } finally {
+      if (mounted) {
+        setState(() => _isApplyingVoiceTranscript = false);
+      }
+    }
+    if (!mounted) {
+      return;
+    }
     setState(() {
       _voicePhase = _VoicePhase.idle;
       _voiceTranscript = '';
+      _voiceSuggestion = null;
+      _showSuggestedVoice = false;
     });
   }
 
@@ -557,6 +594,8 @@ class _EditorPageState extends State<EditorPage> {
     setState(() {
       _voicePhase = _VoicePhase.idle;
       _voiceTranscript = '';
+      _voiceSuggestion = null;
+      _showSuggestedVoice = false;
     });
     await _startVoiceInput();
   }
@@ -579,6 +618,95 @@ class _EditorPageState extends State<EditorPage> {
     setState(() {
       _voicePhase = _VoicePhase.idle;
       _voiceTranscript = '';
+      _voiceSuggestion = null;
+      _showSuggestedVoice = false;
+    });
+  }
+
+  Future<void> _cleanVoiceTranscript() async {
+    final ai = context.read<AiProvider>();
+    final config = ai.config;
+    if (config == null) {
+      _showError('请先在设置中配置 AI 服务');
+      return;
+    }
+    final original = _voiceTranscript.trim();
+    if (original.isEmpty) {
+      return;
+    }
+    final payload = original.length <= 6000
+        ? original
+        : original.substring(0, 6000);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        key: const ValueKey('voiceAiScopeDialog'),
+        title: Text('发送给 ${config.model} 整理？'),
+        content: SizedBox(
+          width: 480,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('仅发送下方语音转写，不会发送笔记正文、图片或凭据。'),
+                if (payload.length != original.length) ...[
+                  const SizedBox(height: 8),
+                  const Text('转写较长，仅发送前 6000 字。'),
+                ],
+                const SizedBox(height: 12),
+                Container(
+                  constraints: const BoxConstraints(maxHeight: 220),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(
+                      dialogContext,
+                    ).colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: SingleChildScrollView(child: SelectableText(payload)),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            key: const ValueKey('confirmVoiceAiButton'),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('确认发送'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) {
+      return;
+    }
+    final result = await showDialog<_VoiceCleanupResult>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) =>
+          _VoiceCleanupProgressDialog(provider: ai, transcript: payload),
+    );
+    if (!mounted || result == null) {
+      return;
+    }
+    if (result.error != null) {
+      _showError(result.error!.message);
+      return;
+    }
+    final suggestion = result.suggestion!;
+    final untouchedTail = original.substring(payload.length);
+    setState(() {
+      _voiceSuggestion = AiTranscriptSuggestion(
+        original: original,
+        suggested: '${suggestion.suggested}$untouchedTail',
+      );
+      _showSuggestedVoice = true;
     });
   }
 
@@ -1459,7 +1587,9 @@ class _EditorPageState extends State<EditorPage> {
                                 key: const ValueKey('noteContentField'),
                                 child: NoteBlockEditor(
                                   controller: _blockController,
-                                  enabled: !_voiceSessionActive,
+                                  enabled:
+                                      !_voiceSessionActive ||
+                                      _isApplyingVoiceTranscript,
                                   onPreviewImage: _previewImageById,
                                   onEditImageCaption: _editImageCaption,
                                   onReplaceImage: _replaceImage,
@@ -1470,6 +1600,9 @@ class _EditorPageState extends State<EditorPage> {
                                 _VoiceInputPanel(
                                   phase: _voicePhase,
                                   transcript: _voiceTranscript,
+                                  suggestion: _voiceSuggestion,
+                                  showSuggested: _showSuggestedVoice,
+                                  canUseAi: aiConfigured,
                                   localeLabel: _voiceLocaleLabel,
                                   locales: _preferredVoiceLocales,
                                   selectedLocaleId: _voiceLocaleId,
@@ -1477,6 +1610,12 @@ class _EditorPageState extends State<EditorPage> {
                                   onInsert: _insertVoiceTranscript,
                                   onRetry: _retryVoiceInput,
                                   onDiscard: _discardVoiceTranscript,
+                                  onClean: _cleanVoiceTranscript,
+                                  onVersionChanged: (showSuggested) {
+                                    setState(
+                                      () => _showSuggestedVoice = showSuggested,
+                                    );
+                                  },
                                   onLocaleSelected: _selectVoiceLocale,
                                 ),
                               ],
@@ -1508,156 +1647,200 @@ class _EditorPageState extends State<EditorPage> {
                           ),
                         ),
                       ),
-                      child: Row(
-                        children: [
-                          if (_blockController.selectedImageId
-                              case final imageId?) ...[
-                            IconButton(
-                              key: const ValueKey('previewSelectedImageButton'),
-                              onPressed: () => _previewImageById(imageId),
-                              icon: const Icon(Icons.open_in_full),
-                              tooltip: '预览图片',
-                            ),
-                            IconButton(
-                              key: const ValueKey('moveSelectedImageUpButton'),
-                              onPressed: () =>
-                                  _blockController.moveImage(imageId, -1),
-                              icon: const Icon(Icons.arrow_upward),
-                              tooltip: '上移图片',
-                            ),
-                            IconButton(
-                              key: const ValueKey(
-                                'moveSelectedImageDownButton',
+                      child: LayoutBuilder(
+                        builder: (context, toolbarConstraints) => Row(
+                          children: [
+                            Expanded(
+                              child: SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: Row(
+                                  children: [
+                                    if (_blockController.selectedImageId
+                                        case final imageId?) ...[
+                                      IconButton(
+                                        key: const ValueKey(
+                                          'previewSelectedImageButton',
+                                        ),
+                                        onPressed: () =>
+                                            _previewImageById(imageId),
+                                        icon: const Icon(Icons.open_in_full),
+                                        tooltip: '预览图片',
+                                      ),
+                                      IconButton(
+                                        key: const ValueKey(
+                                          'moveSelectedImageUpButton',
+                                        ),
+                                        onPressed: () => _blockController
+                                            .moveImage(imageId, -1),
+                                        icon: const Icon(Icons.arrow_upward),
+                                        tooltip: '上移图片',
+                                      ),
+                                      IconButton(
+                                        key: const ValueKey(
+                                          'moveSelectedImageDownButton',
+                                        ),
+                                        onPressed: () => _blockController
+                                            .moveImage(imageId, 1),
+                                        icon: const Icon(Icons.arrow_downward),
+                                        tooltip: '下移图片',
+                                      ),
+                                      PopupMenuButton<String>(
+                                        key: const ValueKey(
+                                          'selectedImageMoreButton',
+                                        ),
+                                        tooltip: '更多图片操作',
+                                        onSelected: (value) {
+                                          if (value == 'caption') {
+                                            _editImageCaption(imageId);
+                                          } else if (value == 'replace') {
+                                            _replaceImage(imageId);
+                                          } else if (value == 'delete') {
+                                            _blockController.removeImage(
+                                              imageId,
+                                            );
+                                          }
+                                        },
+                                        itemBuilder: (context) => const [
+                                          PopupMenuItem(
+                                            key: ValueKey(
+                                              'editImageCaptionMenuItem',
+                                            ),
+                                            value: 'caption',
+                                            child: Text('编辑说明'),
+                                          ),
+                                          PopupMenuItem(
+                                            value: 'replace',
+                                            child: Text('替换图片'),
+                                          ),
+                                          PopupMenuItem(
+                                            key: ValueKey(
+                                              'deleteImageMenuItem',
+                                            ),
+                                            value: 'delete',
+                                            child: Text('删除图片'),
+                                          ),
+                                        ],
+                                        icon: const Icon(Icons.more_horiz),
+                                      ),
+                                    ] else ...[
+                                      IconButton(
+                                        key: const ValueKey(
+                                          'addNoteImageButton',
+                                        ),
+                                        onPressed: _isPickingImages
+                                            ? null
+                                            : _pickImages,
+                                        icon: _isPickingImages
+                                            ? const SizedBox.square(
+                                                dimension: 20,
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                    ),
+                                              )
+                                            : const Icon(
+                                                Icons
+                                                    .add_photo_alternate_outlined,
+                                              ),
+                                        tooltip: '添加图片',
+                                      ),
+                                      Text(
+                                        '${_images.length}/${NoteImageService.maxImagesPerNote}',
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.bodySmall,
+                                      ),
+                                      IconButton(
+                                        onPressed: _insertCurrentTime,
+                                        icon: const Icon(
+                                          Icons.schedule_outlined,
+                                        ),
+                                        tooltip: '插入当前时间',
+                                      ),
+                                      IconButton(
+                                        key: const ValueKey('inlineTagButton'),
+                                        onPressed: _insertTagMarker,
+                                        icon: const Icon(Icons.tag_outlined),
+                                        tooltip: '插入 #标签',
+                                      ),
+                                      IconButton(
+                                        key: const ValueKey('voiceInputButton'),
+                                        onPressed:
+                                            !_voiceInputSupported ||
+                                                _voicePhase ==
+                                                    _VoicePhase.starting ||
+                                                _voicePhase ==
+                                                    _VoicePhase.reviewing
+                                            ? null
+                                            : _toggleVoiceInput,
+                                        icon:
+                                            _voicePhase == _VoicePhase.starting
+                                            ? const SizedBox.square(
+                                                dimension: 20,
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                    ),
+                                              )
+                                            : Icon(
+                                                _isListening
+                                                    ? Icons.stop_circle_outlined
+                                                    : Icons.mic_none_outlined,
+                                                color: _isListening
+                                                    ? Theme.of(
+                                                        context,
+                                                      ).colorScheme.error
+                                                    : null,
+                                              ),
+                                        tooltip: !_voiceInputSupported
+                                            ? '当前平台不支持语音输入'
+                                            : _voicePhase ==
+                                                  _VoicePhase.starting
+                                            ? '正在准备语音输入'
+                                            : _voicePhase ==
+                                                  _VoicePhase.reviewing
+                                            ? '请先处理识别结果'
+                                            : _isListening
+                                            ? '停止语音输入'
+                                            : '开始语音输入',
+                                      ),
+                                    ],
+                                  ],
+                                ),
                               ),
-                              onPressed: () =>
-                                  _blockController.moveImage(imageId, 1),
-                              icon: const Icon(Icons.arrow_downward),
-                              tooltip: '下移图片',
                             ),
-                            PopupMenuButton<String>(
-                              key: const ValueKey('selectedImageMoreButton'),
-                              tooltip: '更多图片操作',
-                              onSelected: (value) {
-                                if (value == 'caption') {
-                                  _editImageCaption(imageId);
-                                } else if (value == 'replace') {
-                                  _replaceImage(imageId);
-                                } else if (value == 'delete') {
-                                  _blockController.removeImage(imageId);
-                                }
-                              },
-                              itemBuilder: (context) => const [
-                                PopupMenuItem(
-                                  key: ValueKey('editImageCaptionMenuItem'),
-                                  value: 'caption',
-                                  child: Text('编辑说明'),
+                            if (toolbarConstraints.maxWidth >= 430) ...[
+                              SizedBox(
+                                width: 64,
+                                child: Text(
+                                  _isListening
+                                      ? '听写中'
+                                      : '${_blockController.characterCount} 字',
+                                  textAlign: TextAlign.end,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.bodySmall,
                                 ),
-                                PopupMenuItem(
-                                  value: 'replace',
-                                  child: Text('替换图片'),
-                                ),
-                                PopupMenuItem(
-                                  key: ValueKey('deleteImageMenuItem'),
-                                  value: 'delete',
-                                  child: Text('删除图片'),
-                                ),
-                              ],
-                              icon: const Icon(Icons.more_horiz),
-                            ),
-                          ] else ...[
-                            IconButton(
-                              key: const ValueKey('addNoteImageButton'),
-                              onPressed: _isPickingImages ? null : _pickImages,
-                              icon: _isPickingImages
-                                  ? const SizedBox.square(
-                                      dimension: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : const Icon(
-                                      Icons.add_photo_alternate_outlined,
-                                    ),
-                              tooltip: '添加图片',
-                            ),
-                            Text(
-                              '${_images.length}/${NoteImageService.maxImagesPerNote}',
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                            IconButton(
-                              onPressed: _insertCurrentTime,
-                              icon: const Icon(Icons.schedule_outlined),
-                              tooltip: '插入当前时间',
-                            ),
-                            IconButton(
-                              key: const ValueKey('inlineTagButton'),
-                              onPressed: _insertTagMarker,
-                              icon: const Icon(Icons.tag_outlined),
-                              tooltip: '插入 #标签',
-                            ),
-                            IconButton(
-                              key: const ValueKey('voiceInputButton'),
-                              onPressed:
-                                  !_voiceInputSupported ||
-                                      _voicePhase == _VoicePhase.starting ||
-                                      _voicePhase == _VoicePhase.reviewing
+                              ),
+                              const SizedBox(width: 10),
+                            ] else
+                              const SizedBox(width: 6),
+                            FilledButton.icon(
+                              key: const ValueKey('saveNoteButton'),
+                              onPressed: _isSaving || _voiceSessionActive
                                   ? null
-                                  : _toggleVoiceInput,
-                              icon: _voicePhase == _VoicePhase.starting
+                                  : _saveNote,
+                              icon: _isSaving
                                   ? const SizedBox.square(
-                                      dimension: 20,
+                                      dimension: 16,
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2,
                                       ),
                                     )
-                                  : Icon(
-                                      _isListening
-                                          ? Icons.stop_circle_outlined
-                                          : Icons.mic_none_outlined,
-                                      color: _isListening
-                                          ? Theme.of(context).colorScheme.error
-                                          : null,
-                                    ),
-                              tooltip: !_voiceInputSupported
-                                  ? '当前平台不支持语音输入'
-                                  : _voicePhase == _VoicePhase.starting
-                                  ? '正在准备语音输入'
-                                  : _voicePhase == _VoicePhase.reviewing
-                                  ? '请先处理识别结果'
-                                  : _isListening
-                                  ? '停止语音输入'
-                                  : '开始语音输入',
+                                  : const Icon(Icons.save_outlined, size: 18),
+                              label: const Text('保存'),
                             ),
                           ],
-                          const Spacer(),
-                          SizedBox(
-                            width: 64,
-                            child: Text(
-                              _isListening
-                                  ? '听写中'
-                                  : '${_blockController.characterCount} 字',
-                              textAlign: TextAlign.end,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          FilledButton.icon(
-                            key: const ValueKey('saveNoteButton'),
-                            onPressed: _isSaving || _voiceSessionActive
-                                ? null
-                                : _saveNote,
-                            icon: _isSaving
-                                ? const SizedBox.square(
-                                    dimension: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(Icons.save_outlined, size: 18),
-                            label: const Text('保存'),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   ),
@@ -1802,10 +1985,158 @@ class _FormatButton extends StatelessWidget {
   }
 }
 
+class _VoiceCleanupResult {
+  const _VoiceCleanupResult.success(this.suggestion) : error = null;
+  const _VoiceCleanupResult.failure(this.error) : suggestion = null;
+
+  final AiTranscriptSuggestion? suggestion;
+  final AiRemoteException? error;
+}
+
+class _VoiceCleanupProgressDialog extends StatefulWidget {
+  const _VoiceCleanupProgressDialog({
+    required this.provider,
+    required this.transcript,
+  });
+
+  final AiProvider provider;
+  final String transcript;
+
+  @override
+  State<_VoiceCleanupProgressDialog> createState() =>
+      _VoiceCleanupProgressDialogState();
+}
+
+class _VoiceCleanupProgressDialogState
+    extends State<_VoiceCleanupProgressDialog> {
+  bool _isCancelling = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _run());
+  }
+
+  Future<void> _run() async {
+    try {
+      final suggestion = await widget.provider.cleanTranscript(
+        widget.transcript,
+      );
+      if (mounted) {
+        Navigator.of(context).pop(_VoiceCleanupResult.success(suggestion));
+      }
+    } on AiRemoteException catch (error) {
+      if (mounted) {
+        Navigator.of(context).pop(_VoiceCleanupResult.failure(error));
+      }
+    } catch (_) {
+      if (mounted) {
+        Navigator.of(context).pop(
+          const _VoiceCleanupResult.failure(
+            AiRemoteException(AiRemoteError.network, 'AI 语音整理失败，请重试'),
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      key: const ValueKey('voiceAiProgressDialog'),
+      title: const Text('正在整理语音文本'),
+      content: const Row(
+        children: [
+          SizedBox.square(
+            dimension: 22,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          SizedBox(width: 14),
+          Expanded(child: Text('原始转写会一直保留到你确认插入')),
+        ],
+      ),
+      actions: [
+        TextButton(
+          key: const ValueKey('cancelVoiceAiButton'),
+          onPressed: _isCancelling
+              ? null
+              : () {
+                  setState(() => _isCancelling = true);
+                  widget.provider.cancel();
+                },
+          child: Text(_isCancelling ? '正在取消' : '取消请求'),
+        ),
+      ],
+    );
+  }
+}
+
+class _VoiceDiffText extends StatelessWidget {
+  const _VoiceDiffText({
+    required this.original,
+    required this.suggested,
+    required this.showSuggested,
+  });
+
+  final String original;
+  final String suggested;
+  final bool showSuggested;
+
+  @override
+  Widget build(BuildContext context) {
+    final originalRunes = original.runes.toList();
+    final suggestedRunes = suggested.runes.toList();
+    var prefix = 0;
+    while (prefix < originalRunes.length &&
+        prefix < suggestedRunes.length &&
+        originalRunes[prefix] == suggestedRunes[prefix]) {
+      prefix++;
+    }
+    var suffix = 0;
+    while (suffix < originalRunes.length - prefix &&
+        suffix < suggestedRunes.length - prefix &&
+        originalRunes[originalRunes.length - 1 - suffix] ==
+            suggestedRunes[suggestedRunes.length - 1 - suffix]) {
+      suffix++;
+    }
+    final source = showSuggested ? suggestedRunes : originalRunes;
+    final changedEnd = source.length - suffix;
+    final normalStyle = Theme.of(context).textTheme.bodyMedium;
+    final changedColor = showSuggested
+        ? Theme.of(context).colorScheme.secondaryContainer
+        : Theme.of(context).colorScheme.errorContainer;
+    return Text.rich(
+      key: const ValueKey('voiceTranscriptText'),
+      TextSpan(
+        style: normalStyle,
+        children: [
+          if (prefix > 0)
+            TextSpan(text: String.fromCharCodes(source.take(prefix))),
+          if (changedEnd > prefix)
+            TextSpan(
+              text: String.fromCharCodes(
+                source.skip(prefix).take(changedEnd - prefix),
+              ),
+              style: TextStyle(
+                backgroundColor: changedColor,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          if (suffix > 0)
+            TextSpan(text: String.fromCharCodes(source.skip(changedEnd))),
+        ],
+      ),
+    );
+  }
+}
+
 class _VoiceInputPanel extends StatelessWidget {
   const _VoiceInputPanel({
     required this.phase,
     required this.transcript,
+    required this.suggestion,
+    required this.showSuggested,
+    required this.canUseAi,
     required this.localeLabel,
     required this.locales,
     required this.selectedLocaleId,
@@ -1813,11 +2144,16 @@ class _VoiceInputPanel extends StatelessWidget {
     required this.onInsert,
     required this.onRetry,
     required this.onDiscard,
+    required this.onClean,
+    required this.onVersionChanged,
     required this.onLocaleSelected,
   });
 
   final _VoicePhase phase;
   final String transcript;
+  final AiTranscriptSuggestion? suggestion;
+  final bool showSuggested;
+  final bool canUseAi;
   final String localeLabel;
   final List<LocaleName> locales;
   final String? selectedLocaleId;
@@ -1825,18 +2161,21 @@ class _VoiceInputPanel extends StatelessWidget {
   final Future<void> Function() onInsert;
   final Future<void> Function() onRetry;
   final VoidCallback onDiscard;
+  final Future<void> Function() onClean;
+  final ValueChanged<bool> onVersionChanged;
   final Future<void> Function(String localeId) onLocaleSelected;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final suggestionValue = suggestion;
     final isStarting = phase == _VoicePhase.starting;
     final isListening = phase == _VoicePhase.listening;
     final canChooseLocale =
         phase == _VoicePhase.reviewing && locales.isNotEmpty;
     return Container(
       key: const ValueKey('voiceInputPanel'),
-      height: 136,
+      height: suggestionValue == null ? 136 : 204,
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
       color: colorScheme.surfaceContainer,
       child: Column(
@@ -1905,21 +2244,46 @@ class _VoiceInputPanel extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 6),
+          if (suggestionValue != null) ...[
+            Align(
+              alignment: Alignment.centerLeft,
+              child: SegmentedButton<bool>(
+                key: const ValueKey('voiceVersionSegment'),
+                segments: const [
+                  ButtonSegment(value: false, label: Text('原文')),
+                  ButtonSegment(value: true, label: Text('AI 建议')),
+                ],
+                selected: {showSuggested},
+                onSelectionChanged: (selection) {
+                  onVersionChanged(selection.first);
+                },
+                showSelectedIcon: false,
+                style: const ButtonStyle(visualDensity: VisualDensity.compact),
+              ),
+            ),
+            const SizedBox(height: 6),
+          ],
           Expanded(
             child: SingleChildScrollView(
-              child: Text(
-                transcript.trim().isEmpty
-                    ? isStarting
-                          ? '正在连接系统语音识别...'
-                          : '请开始说话，识别结果会先显示在这里。'
-                    : transcript,
-                key: const ValueKey('voiceTranscriptText'),
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: transcript.trim().isEmpty
-                      ? colorScheme.onSurfaceVariant
-                      : colorScheme.onSurface,
-                ),
-              ),
+              child: suggestionValue == null
+                  ? Text(
+                      transcript.trim().isEmpty
+                          ? isStarting
+                                ? '正在连接系统语音识别...'
+                                : '请开始说话，识别结果会先显示在这里。'
+                          : transcript,
+                      key: const ValueKey('voiceTranscriptText'),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: transcript.trim().isEmpty
+                            ? colorScheme.onSurfaceVariant
+                            : colorScheme.onSurface,
+                      ),
+                    )
+                  : _VoiceDiffText(
+                      original: suggestionValue.original,
+                      suggested: suggestionValue.suggested,
+                      showSuggested: showSuggested,
+                    ),
             ),
           ),
           const SizedBox(height: 4),
@@ -1936,16 +2300,25 @@ class _VoiceInputPanel extends StatelessWidget {
                     label: const Text('停止'),
                   )
                 else if (phase == _VoicePhase.reviewing) ...[
-                  TextButton(
+                  IconButton(
                     key: const ValueKey('discardVoiceInputButton'),
                     onPressed: onDiscard,
-                    child: const Text('丢弃'),
+                    icon: const Icon(Icons.delete_outline),
+                    tooltip: '丢弃语音结果',
                   ),
-                  TextButton(
+                  IconButton(
                     key: const ValueKey('retryVoiceInputButton'),
                     onPressed: onRetry,
-                    child: const Text('重试'),
+                    icon: const Icon(Icons.refresh),
+                    tooltip: '重新听写',
                   ),
+                  if (canUseAi && suggestionValue == null)
+                    IconButton(
+                      key: const ValueKey('cleanVoiceWithAiButton'),
+                      onPressed: transcript.trim().isEmpty ? null : onClean,
+                      icon: const Icon(Icons.auto_fix_high_outlined),
+                      tooltip: 'AI 整理语音文本',
+                    ),
                   const Spacer(),
                   FilledButton.icon(
                     key: const ValueKey('insertVoiceInputButton'),

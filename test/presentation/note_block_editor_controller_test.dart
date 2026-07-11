@@ -186,4 +186,19 @@ void main() {
 
     expect(controller.blocks.single.text, '**Hello**');
   });
+
+  test('inserts at the document end when editor selection is stale', () async {
+    final controller = NoteBlockEditorController(
+      blocks: const [NoteBlock(id: 'paragraph', type: NoteBlockType.paragraph)],
+      images: const [],
+    );
+    addTearDown(controller.dispose);
+    controller.editorState.selection = Selection.collapsed(
+      Position(path: const [99], offset: 12),
+    );
+
+    await controller.insertText('Inserted', atCapturedSelection: true);
+
+    expect(controller.markdown, 'Inserted');
+  });
 }

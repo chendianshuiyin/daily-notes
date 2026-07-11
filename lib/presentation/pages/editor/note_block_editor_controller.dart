@@ -221,7 +221,11 @@ class NoteBlockEditorController extends ChangeNotifier {
     if (atCapturedSelection && _capturedSelection != null) {
       editorState.selection = _capturedSelection;
     }
-    final selection = editorState.selection;
+    var selection = editorState.selection;
+    if (selection != null && !_isUsableTextSelection(selection)) {
+      editorState.selection = null;
+      selection = null;
+    }
     if (selection != null && !selection.isCollapsed) {
       final start = selection.normalized.start;
       await editorState.deleteSelection(selection);
@@ -242,6 +246,20 @@ class NoteBlockEditorController extends ChangeNotifier {
     final node = paragraphNode(text: text);
     await editorState.apply(editorState.transaction..insertNode(path, node));
     _capturedSelection = null;
+  }
+
+  bool _isUsableTextSelection(Selection selection) {
+    final normalized = selection.normalized;
+    final startNode = editorState.document.nodeAtPath(normalized.start.path);
+    final endNode = editorState.document.nodeAtPath(normalized.end.path);
+    final startLength = startNode?.delta?.length;
+    final endLength = endNode?.delta?.length;
+    return startLength != null &&
+        endLength != null &&
+        normalized.start.offset >= 0 &&
+        normalized.start.offset <= startLength &&
+        normalized.end.offset >= 0 &&
+        normalized.end.offset <= endLength;
   }
 
   Future<void> removeImage(String imageId) async {
